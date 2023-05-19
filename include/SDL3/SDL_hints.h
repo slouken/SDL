@@ -1676,6 +1676,19 @@ extern "C" {
 #define SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS   "SDL_VIDEO_MINIMIZE_ON_FOCUS_LOSS"
 
 /**
+ *  \brief A scale value applied to all coordinates used in the video API
+ *
+ *  The variable can be set to the following values:
+ *    "0"       - No coordinate virtualization is done
+ *    "pixels"  - Coordinates are always in pixels, useful for testing content scale on Apple platforms
+ *    "points"  - Coordinates are always in points, useful for testing pixel density on Windows platforms
+ *    N         - Use a fixed scaling value N, useful for testing arbitrary scales
+ *
+ *  By default no coordinate scaling is done.
+ */
+#define SDL_HINT_VIDEO_COORDINATE_SCALE   "SDL_VIDEO_COORDINATE_SCALE"
+
+/**
  *  \brief  A variable controlling whether the libdecor Wayland backend is allowed to be used.
  *
  *  This variable can be set to the following values:

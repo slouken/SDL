@@ -165,6 +165,18 @@ typedef enum
     VIDEO_DEVICE_QUIRK_HAS_POPUP_WINDOW_SUPPORT = 0x04,
 } DeviceQuirkFlags;
 
+/* Coordinate scaling mode */
+typedef enum
+{
+    COORDINATE_SCALING_NONE,    /* No scaling (the default) */
+    COORDINATE_SCALING_VALUE,   /* Coordinates are multiplied by a constant value "C"
+                                   Pixel density is divided by C
+                                   Content scale is multiplied by C */
+    COORDINATE_SCALING_PIXELS,  /* Coordinates are multiplied by pixel density */
+    COORDINATE_SCALING_POINTS,  /* Coordinates are divided by content scale */
+
+} CoordinateScalingMode;
+
 struct SDL_VideoDevice
 {
     /* * * */
@@ -370,6 +382,8 @@ struct SDL_VideoDevice
     SDL_bool setting_display_mode;
     Uint32 quirk_flags;
     SDL_SystemTheme system_theme;
+    CoordinateScalingMode scale_mode;
+    float scale_value;
 
     /* * * */
     /* Data used by the GL drivers */
