@@ -1177,6 +1177,10 @@ static SDL_bool HIDAPI_DriverXboxOne_UpdateInitState(SDL_DriverXboxOne_Context *
 
 #pragma pack(push, 1)
 
+typedef struct {
+    Uint8 bytes[16];
+} gip_guid_t;
+
 struct gip_header {
     Uint8 command;
     Uint8 options;
@@ -1192,6 +1196,18 @@ struct gip_pkt_acknowledge {
     Uint16 length;
     Uint8 padding[2];
     Uint16 remaining;
+};
+
+struct gip_pkt_identify {
+    Uint8 unknown[16];
+    Uint16 external_commands_offset;
+    Uint16 firmware_versions_offset;
+    Uint16 audio_formats_offset;
+    Uint16 capabilities_out_offset;
+    Uint16 capabilities_in_offset;
+    Uint16 classes_offset;
+    Uint16 interfaces_offset;
+    Uint16 hid_descriptor_offset;
 };
 
 #pragma pack(pop)
@@ -1352,6 +1368,82 @@ static SDL_bool HIDAPI_GIP_AcknowledgePacket(SDL_DriverXboxOne_Context *ctx, str
     }
 }
 
+static void *HIDAPI_GIP_GetElement(Uint8 *data, Uint32 size, Uint16 offset, int item_length, Uint8 *element_count)
+{
+    Uint8 count;
+    Uint32 total;
+
+    if (!offset) {
+        return NULL;
+    }
+
+    count = data[offset++];
+    if ((offset + count) > size) {
+        return NULL;
+    }
+
+    total = (count * item_length);
+    if ((offset + total) > size) {
+        return NULL;
+    }
+
+    if (element_count) {
+        *element_count = count;
+    }
+    return data + offset;
+}
+
+static SDL_bool HIDAPI_GIP_HandleIdentificationPacket(SDL_DriverXboxOne_Context *ctx, Uint8 *data, Uint32 size)
+{ 
+    struct gip_pkt_identify *pkt = (struct gip_pkt_identify *)data;
+
+    if (size < sizeof(*pkt)) {
+        return SDL_FALSE;
+    }
+
+    /* Skip unknown header */
+    data += sizeof(pkt->unknown);
+    size -= sizeof(pkt->unknown);
+
+#ifdef DEBUG_JOYSTICK
+    SDL_Log("Xbox One identification packet:\n");
+    SDL_Log("    external_commands_offset: %d\n", pkt->external_commands_offset);
+    SDL_Log("    firmware_versions_offset: %d\n", pkt->firmware_versions_offset);
+    SDL_Log("    audio_formats_offset: %d\n", pkt->audio_formats_offset);
+    SDL_Log("    capabilities_out_offset: %d\n", pkt->capabilities_out_offset);
+    SDL_Log("    capabilities_in_offset: %d\n", pkt->capabilities_in_offset);
+    SDL_Log("    classes_offset: %d\n", pkt->classes_offset);
+    SDL_Log("    interfaces_offset: %d\n", pkt->interfaces_offset);
+    SDL_Log("    hid_descriptor_offset: %d\n", pkt->hid_descriptor_offset);
+#endif
+
+#if 1 /* FIXME: This needs to be done before the controller is opened */
+    /* Check to see if this controller has a share button */
+    if (!SDL_IsJoystickXboxOneElite(ctx->vendor_id, ctx->product_id)) {
+        gip_guid_t *interfaces;
+        Uint8 interfaces_count = 0;
+
+        interfaces = HIDAPI_GIP_GetElement(data, size, SDL_SwapLE16(pkt->interfaces_offset), sizeof(gip_guid_t), &interfaces_count);
+        if (interfaces) {
+            gip_guid_t middle_button_guid = { { 0xfe, 0xd2, 0xdd, 0xec, 0x87, 0xd3, 0x94, 0x42, 0xbd, 0x96, 0x1a, 0x71, 0x2e, 0x3d, 0xc7, 0x7d } };
+            Uint8 i;
+
+            for (i = 0; i < interfaces_count; ++i) {
+                if (SDL_memcmp(&interfaces[i], &middle_button_guid, sizeof(middle_button_guid)) == 0) {
+#ifdef DEBUG_JOYSTICK
+                    SDL_Log("Xbox One controller has a share button!\n");
+#endif
+                    ctx->has_share_button = SDL_TRUE;
+                    break;
+                }
+            }
+        }
+    }
+#endif /* 0 */
+
+    return SDL_TRUE;
+}
+
 static SDL_bool HIDAPI_GIP_DispatchPacket(SDL_Joystick *joystick, SDL_DriverXboxOne_Context *ctx, struct gip_header *hdr, Uint8 *data, Uint32 size)
 {
     if ((hdr->options & 0x0F) != 0) {
@@ -1393,6 +1485,8 @@ static SDL_bool HIDAPI_GIP_DispatchPacket(SDL_Joystick *joystick, SDL_DriverXbox
 #ifdef DEBUG_XBOX_PROTOCOL
             HIDAPI_DumpPacket("Xbox One identification data: size = %d", data, size);
 #endif
+            HIDAPI_GIP_HandleIdentificationPacket(ctx, data, size);
+
             SetInitState(ctx, XBOX_ONE_INIT_STATE_STARTUP);
             break;
         case GIP_CMD_POWER:
