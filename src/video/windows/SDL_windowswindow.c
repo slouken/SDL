@@ -174,6 +174,10 @@ static DWORD GetWindowStyleEx(SDL_Window *window)
     if (SDL_WINDOW_IS_POPUP(window) || (window->flags & SDL_WINDOW_NOT_FOCUSABLE)) {
         style |= WS_EX_NOACTIVATE;
     }
+    if (window->flags & SDL_WINDOW_NOT_CLICKABLE) {
+        // This has other side effects, but is the only I know of to achieve this effect
+        style |= (WS_EX_LAYERED | WS_EX_TRANSPARENT);
+    }
     return style;
 }
 

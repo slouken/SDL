@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
     SDL_Window *window = NULL;
     SDL_Renderer *renderer = NULL;
     SDL_Surface *shape = NULL;
+    SDL_bool clickable = SDL_TRUE;
     SDL_bool resizable = SDL_FALSE;
     SDL_WindowFlags flags;
     SDL_bool done = SDL_FALSE;
@@ -45,6 +46,8 @@ int main(int argc, char *argv[])
     for (i = 1; i < argc; ++i) {
         if (SDL_strcmp(argv[i], "--resizable") == 0) {
             resizable = SDL_TRUE;
+        } else if (SDL_strcmp(argv[i], "--not-clickable") == 0) {
+            clickable = SDL_FALSE;
         } else if (!image_file) {
             image_file = argv[i];
         } else {
@@ -73,6 +76,9 @@ int main(int argc, char *argv[])
         flags |= SDL_WINDOW_RESIZABLE;
     } else {
         flags |= SDL_WINDOW_BORDERLESS;
+    }
+    if (!clickable) {
+        flags |= SDL_WINDOW_NOT_CLICKABLE;
     }
     window = SDL_CreateWindow("SDL Shape Test", shape->w, shape->h, flags);
     if (!window) {

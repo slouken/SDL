@@ -1992,7 +1992,7 @@ static int SetupWindowData(SDL_VideoDevice *_this, SDL_Window *window, NSWindow 
             NSWindow *nsparent = ((__bridge SDL_CocoaWindowData *)window->parent->driverdata).nswindow;
             [nsparent addChildWindow:nswindow ordered:NSWindowAbove];
 
-            if (window->flags & SDL_WINDOW_TOOLTIP) {
+            if (window->flags & (SDL_WINDOW_TOOLTIP | SDL_WINDOW_NOT_CLICKABLE)) {
                 [nswindow setIgnoresMouseEvents:YES];
             } else if (window->flags & SDL_WINDOW_POPUP_MENU) {
                 if (window->parent == SDL_GetKeyboardFocus()) {

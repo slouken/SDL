@@ -1622,7 +1622,7 @@ void Wayland_ShowWindow(SDL_VideoDevice *_this, SDL_Window *window)
                                                                                 data->shell_surface.xdg.roleobj.popup.positioner);
             xdg_popup_add_listener(data->shell_surface.xdg.roleobj.popup.popup, &popup_listener_xdg, data);
 
-            if (window->flags & SDL_WINDOW_TOOLTIP) {
+            if (window->flags & (SDL_WINDOW_TOOLTIP | SDL_WINDOW_NOT_CLICKABLE)) {
                 struct wl_region *region;
 
                 /* Tooltips can't be interacted with, so turn off the input region to avoid blocking anything behind them */

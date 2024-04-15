@@ -538,7 +538,7 @@ int X11_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_PropertiesI
         depth = displaydata->depth;
     }
 
-    xattr.override_redirect = ((window->flags & SDL_WINDOW_TOOLTIP) || (window->flags & SDL_WINDOW_POPUP_MENU) || force_override_redirect) ? True : False;
+    xattr.override_redirect = ((window->flags & (SDL_WINDOW_TOOLTIP | SDL_WINDOW_NOT_CLICKABLE)) || (window->flags & SDL_WINDOW_POPUP_MENU) || force_override_redirect) ? True : False;
     xattr.backing_store = NotUseful;
     xattr.background_pixmap = None;
     xattr.border_pixel = 0;
@@ -784,7 +784,7 @@ int X11_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_PropertiesI
 
 #ifdef SDL_VIDEO_DRIVER_X11_XSHAPE
     /* Tooltips do not receive input */
-    if (window->flags & SDL_WINDOW_TOOLTIP) {
+    if (window->flags & (SDL_WINDOW_TOOLTIP | SDL_WINDOW_NOT_CLICKABLE)) {
         Region region = X11_XCreateRegion();
         X11_XShapeCombineRegion(display, w, ShapeInput, 0, 0, region, ShapeSet);
         X11_XDestroyRegion(region);

@@ -57,6 +57,8 @@ static const char *video_usage[] = {
     "[--minimize]",
     "[--mouse-focus]",
     "[--noframe]",
+    "[--not-clickable]",
+    "[--not-focusable]",
     "[--refresh R]",
     "[--renderer driver]",
     "[--resizable]",
@@ -588,6 +590,14 @@ int SDLTest_CommonArg(SDLTest_CommonState *state, int index)
         }
         if (SDL_strcasecmp(argv[index], "--utility") == 0) {
             state->window_flags |= SDL_WINDOW_UTILITY;
+            return 1;
+        }
+        if (SDL_strcasecmp(argv[index], "--not-clickable") == 0) {
+            state->window_flags |= SDL_WINDOW_NOT_CLICKABLE;
+            return 1;
+        }
+        if (SDL_strcasecmp(argv[index], "[--not-focusable]") == 0) {
+            state->window_flags |= SDL_WINDOW_NOT_FOCUSABLE;
             return 1;
         }
     }

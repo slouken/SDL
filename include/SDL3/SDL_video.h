@@ -151,10 +151,11 @@ typedef Uint32 SDL_WindowFlags;
 #define SDL_WINDOW_TOOLTIP              0x00040000U /**< window should be treated as a tooltip and does not get mouse or keyboard focus, requires a parent window */
 #define SDL_WINDOW_POPUP_MENU           0x00080000U /**< window should be treated as a popup menu, requires a parent window */
 #define SDL_WINDOW_KEYBOARD_GRABBED     0x00100000U /**< window has grabbed keyboard input */
+#define SDL_WINDOW_NOT_CLICKABLE        0x00200000U /**< window does not get mouse focus */
+#define SDL_WINDOW_NOT_FOCUSABLE        0x00400000U /**< window does not get keyboard focus */
 #define SDL_WINDOW_VULKAN               0x10000000U /**< window usable for Vulkan surface */
 #define SDL_WINDOW_METAL                0x20000000U /**< window usable for Metal view */
 #define SDL_WINDOW_TRANSPARENT          0x40000000U /**< window with transparent buffer */
-#define SDL_WINDOW_NOT_FOCUSABLE        0x80000000U /**< window should not be focusable */
 
 /**
  * Used to indicate that you don't care what the window position is.
@@ -890,6 +891,8 @@ extern DECLSPEC SDL_Window *SDLCALL SDL_CreatePopupWindow(SDL_Window *parent, in
  *   window decoration
  * - `SDL_PROP_WINDOW_CREATE_EXTERNAL_GRAPHICS_CONTEXT_BOOLEAN`: true if the
  *   window will be used with an externally managed graphics context.
+ * - `SDL_PROP_WINDOW_CREATE_CLICKABLE_BOOLEAN`: true if the window should
+ *   accept mouse input (defaults true)
  * - `SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN`: true if the window should
  *   accept keyboard input (defaults true)
  * - `SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN`: true if the window should
@@ -996,6 +999,7 @@ extern DECLSPEC SDL_Window *SDLCALL SDL_CreateWindowWithProperties(SDL_Propertie
 
 #define SDL_PROP_WINDOW_CREATE_ALWAYS_ON_TOP_BOOLEAN               "always_on_top"
 #define SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN                  "borderless"
+#define SDL_PROP_WINDOW_CREATE_CLICKABLE_BOOLEAN                   "clickable"
 #define SDL_PROP_WINDOW_CREATE_FOCUSABLE_BOOLEAN                   "focusable"
 #define SDL_PROP_WINDOW_CREATE_EXTERNAL_GRAPHICS_CONTEXT_BOOLEAN   "external_graphics_context"
 #define SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN                  "fullscreen"
