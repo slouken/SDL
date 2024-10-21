@@ -304,6 +304,7 @@ typedef struct
     VkSurfaceFormatKHR *surfaceFormats;
     bool recreateSwapchain;
     int vsync;
+    SDL_PropertiesID create_props;
 
     VkFramebuffer *framebuffers;
     VkRenderPass renderPasses[VULKAN_RENDERPASS_COUNT];
@@ -564,12 +565,14 @@ static void VULKAN_DestroyAll(SDL_Renderer *renderer)
         SDL_free(rendererData->renderingFinishedSemaphores);
         rendererData->renderingFinishedSemaphores = NULL;
     }
+    if (rendererData->commandBuffers) {
+        vkFreeCommandBuffers(rendererData->device, rendererData->commandPool, rendererData->swapchainImageCount, rendererData->commandBuffers);
+        SDL_free(rendererData->commandBuffers);
+        rendererData->commandBuffers = NULL;
+        rendererData->currentCommandBuffer = VK_NULL_HANDLE;
+        rendererData->currentCommandBufferIndex = 0;
+    }
     if (rendererData->commandPool) {
-        if (rendererData->commandBuffers) {
-            vkFreeCommandBuffers(rendererData->device, rendererData->commandPool, rendererData->swapchainImageCount, rendererData->commandBuffers);
-            SDL_free(rendererData->commandBuffers);
-            rendererData->commandBuffers = NULL;
-        }
         vkDestroyCommandPool(rendererData->device, rendererData->commandPool, NULL);
         rendererData->commandPool = VK_NULL_HANDLE;
     }
@@ -584,7 +587,9 @@ static void VULKAN_DestroyAll(SDL_Renderer *renderer)
             SDL_free(rendererData->descriptorPools[i]);
         }
         SDL_free(rendererData->descriptorPools);
+        rendererData->descriptorPools = NULL;
         SDL_free(rendererData->numDescriptorPools);
+        rendererData->numDescriptorPools = NULL;
     }
     for (uint32_t i = 0; i < NUM_SHADERS; i++) {
         if (rendererData->vertexShaderModules[i] != VK_NULL_HANDLE) {
@@ -608,6 +613,7 @@ static void VULKAN_DestroyAll(SDL_Renderer *renderer)
         vkDestroyPipeline(rendererData->device, rendererData->pipelineStates[i].pipeline, NULL);
     }
     SDL_free(rendererData->pipelineStates);
+    rendererData->pipelineStates = NULL;
     rendererData->pipelineStateCount = 0;
 
     if (rendererData->currentUploadBuffer) {
@@ -618,7 +624,9 @@ static void VULKAN_DestroyAll(SDL_Renderer *renderer)
             SDL_free(rendererData->uploadBuffers[i]);
         }
         SDL_free(rendererData->uploadBuffers);
+        rendererData->uploadBuffers = NULL;
         SDL_free(rendererData->currentUploadBuffer);
+        rendererData->currentUploadBuffer = NULL;
     }
 
     if (rendererData->constantBuffers) {
@@ -630,8 +638,9 @@ static void VULKAN_DestroyAll(SDL_Renderer *renderer)
             SDL_free(rendererData->constantBuffers[i]);
         }
         SDL_free(rendererData->constantBuffers);
-        SDL_free(rendererData->numConstantBuffers);
         rendererData->constantBuffers = NULL;
+        SDL_free(rendererData->numConstantBuffers);
+        rendererData->numConstantBuffers = NULL;
     }
 
     if (rendererData->device != VK_NULL_HANDLE && !rendererData->device_external) {
@@ -1263,6 +1272,9 @@ static VULKAN_PipelineState *VULKAN_CreatePipelineState(SDL_Renderer *renderer,
     }
 
     pipelineStates = (VULKAN_PipelineState *)SDL_realloc(rendererData->pipelineStates, (rendererData->pipelineStateCount + 1) * sizeof(*pipelineStates));
+    if (!pipelineStates) {
+        return NULL;
+    }
     pipelineStates[rendererData->pipelineStateCount].shader = shader;
     pipelineStates[rendererData->pipelineStateCount].blendMode = blendMode;
     pipelineStates[rendererData->pipelineStateCount].topology = topology;
@@ -2071,6 +2083,13 @@ static VkResult VULKAN_CreateSwapChain(SDL_Renderer *renderer, int w, int h)
         SDL_free(rendererData->fences);
         rendererData->fences = NULL;
     }
+    if (rendererData->commandBuffers) {
+        vkResetCommandPool(rendererData->device, rendererData->commandPool, 0);
+        SDL_free(rendererData->commandBuffers);
+        rendererData->commandBuffers = NULL;
+        rendererData->currentCommandBuffer = VK_NULL_HANDLE;
+        rendererData->currentCommandBufferIndex = 0;
+    }
     if (rendererData->framebuffers) {
         for (uint32_t i = 0; i < rendererData->swapchainImageCount; i++) {
             if (rendererData->framebuffers[i] != VK_NULL_HANDLE) {
@@ -2234,7 +2253,6 @@ static VkResult VULKAN_CreateSwapChain(SDL_Renderer *renderer, int w, int h)
         }
     }
 
-
     VkSwapchainCreateInfoKHR swapchainCreateInfo = { 0 };
     swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapchainCreateInfo.surface = rendererData->surface;
@@ -2321,12 +2339,6 @@ static VkResult VULKAN_CreateSwapChain(SDL_Renderer *renderer, int w, int h)
     commandBufferAllocateInfo.commandPool = rendererData->commandPool;
     commandBufferAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     commandBufferAllocateInfo.commandBufferCount = rendererData->swapchainImageCount;
-    if (rendererData->commandBuffers != NULL) {
-        vkResetCommandPool(rendererData->device, rendererData->commandPool, 0);
-        SDL_free(rendererData->commandBuffers);
-        rendererData->currentCommandBuffer = VK_NULL_HANDLE;
-        rendererData->currentCommandBufferIndex = 0;
-    }
     rendererData->commandBuffers = (VkCommandBuffer *)SDL_calloc(rendererData->swapchainImageCount, sizeof(VkCommandBuffer));
     result = vkAllocateCommandBuffers(rendererData->device, &commandBufferAllocateInfo, rendererData->commandBuffers);
     if (result != VK_SUCCESS) {
@@ -2464,6 +2476,33 @@ static VkResult VULKAN_CreateWindowSizeDependentResources(SDL_Renderer *renderer
     rendererData->viewportDirty = true;
 
     return result;
+}
+
+static bool VULKAN_HandleDeviceLost(SDL_Renderer *renderer)
+{
+    VULKAN_RenderData *rendererData = (VULKAN_RenderData *)renderer->internal;
+
+    VULKAN_WaitForGPU(rendererData);
+
+    VULKAN_DestroyAll(renderer);
+
+    if (VULKAN_CreateDeviceResources(renderer, rendererData->create_props) != VK_SUCCESS) {
+        return false;
+    }
+
+    if (VULKAN_CreateWindowSizeDependentResources(renderer) != VK_SUCCESS) {
+        return false;
+    }
+
+    // Let the application know that the device has been reset
+    {
+        SDL_Event event;
+        event.type = SDL_EVENT_RENDER_DEVICE_RESET;
+        event.common.timestamp = 0;
+        SDL_PushEvent(&event);
+    }
+
+    return true;
 }
 
 // This method is called when the window's size changes.
@@ -4040,12 +4079,19 @@ static bool VULKAN_RenderPresent(SDL_Renderer *renderer)
         }
         result = vkQueueSubmit(rendererData->graphicsQueue, 1, &submitInfo, rendererData->fences[rendererData->currentCommandBufferIndex]);
         if (result != VK_SUCCESS) {
-            SDL_LogError(SDL_LOG_CATEGORY_RENDER, "vkQueueSubmit(): %s\n", SDL_Vulkan_GetResultString(result));
+            if (result == VK_ERROR_DEVICE_LOST) {
+                if (VULKAN_HandleDeviceLost(renderer)) {
+                    SDL_SetError("Present failed, device lost");
+                } else {
+                    // Recovering from device lost failed, error is already set
+                }
+            } else {
+                SDL_LogError(SDL_LOG_CATEGORY_RENDER, "vkQueueSubmit(): %s\n", SDL_Vulkan_GetResultString(result));
+            }
             return false;
         }
         rendererData->currentCommandBuffer = VK_NULL_HANDLE;
         rendererData->currentImageAvailableSemaphore = VK_NULL_HANDLE;
-
 
         VkPresentInfoKHR presentInfo = { 0 };
         presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -4118,6 +4164,13 @@ static bool VULKAN_CreateRenderer(SDL_Renderer *renderer, SDL_Window *window, SD
     rendererData->identitySwizzle.b = VK_COMPONENT_SWIZZLE_IDENTITY;
     rendererData->identitySwizzle.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 
+    // Save the create props in case we need to recreate on device lost
+    rendererData->create_props = SDL_CreateProperties();
+    if (!SDL_CopyProperties(create_props, rendererData->create_props)) {
+        SDL_free(rendererData);
+        return false;
+    }
+
     renderer->WindowEvent = VULKAN_WindowEvent;
     renderer->SupportsBlendMode = VULKAN_SupportsBlendMode;
     renderer->CreateTexture = VULKAN_CreateTexture;
@@ -4161,7 +4214,9 @@ static bool VULKAN_CreateRenderer(SDL_Renderer *renderer, SDL_Window *window, SD
     // Initialize Vulkan resources
     if (VULKAN_CreateDeviceResources(renderer, create_props) != VK_SUCCESS) {
         return false;
-    } else if (VULKAN_CreateWindowSizeDependentResources(renderer) != VK_SUCCESS) {
+    }
+
+    if (VULKAN_CreateWindowSizeDependentResources(renderer) != VK_SUCCESS) {
         return false;
     }
 
