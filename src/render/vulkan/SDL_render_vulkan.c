@@ -490,6 +490,7 @@ static void VULKAN_DestroyAll(SDL_Renderer *renderer)
     if (rendererData->surfaceFormats != NULL) {
         SDL_free(rendererData->surfaceFormats);
         rendererData->surfaceFormats = NULL;
+        rendererData->surfaceFormatsAllocatedCount = 0;
     }
     if (rendererData->swapchainImages != NULL) {
         SDL_free(rendererData->swapchainImages);
@@ -2481,28 +2482,24 @@ static VkResult VULKAN_CreateWindowSizeDependentResources(SDL_Renderer *renderer
 static bool VULKAN_HandleDeviceLost(SDL_Renderer *renderer)
 {
     VULKAN_RenderData *rendererData = (VULKAN_RenderData *)renderer->internal;
-
-    VULKAN_WaitForGPU(rendererData);
+    bool recovered = false;
 
     VULKAN_DestroyAll(renderer);
 
-    if (VULKAN_CreateDeviceResources(renderer, rendererData->create_props) != VK_SUCCESS) {
-        return false;
+    if (VULKAN_CreateDeviceResources(renderer, rendererData->create_props) == VK_SUCCESS &&
+        VULKAN_CreateWindowSizeDependentResources(renderer) == VK_SUCCESS) {
+        recovered = true;
+    } else {
+        SDL_LogError(SDL_LOG_CATEGORY_RENDER, "Renderer couldn't recover from device lost: %s\n", SDL_GetError());
     }
 
-    if (VULKAN_CreateWindowSizeDependentResources(renderer) != VK_SUCCESS) {
-        return false;
-    }
+    // Let the application know that the device has been reset or lost
+    SDL_Event event;
+    event.type = recovered ? SDL_EVENT_RENDER_DEVICE_RESET : SDL_EVENT_RENDER_DEVICE_LOST;
+    event.common.timestamp = 0;
+    SDL_PushEvent(&event);
 
-    // Let the application know that the device has been reset
-    {
-        SDL_Event event;
-        event.type = SDL_EVENT_RENDER_DEVICE_RESET;
-        event.common.timestamp = 0;
-        SDL_PushEvent(&event);
-    }
-
-    return true;
+    return recovered;
 }
 
 // This method is called when the window's size changes.
@@ -4111,7 +4108,15 @@ static bool VULKAN_RenderPresent(SDL_Renderer *renderer)
         // Wait for previous time this command buffer was submitted, will be N frames ago
         result = vkWaitForFences(rendererData->device, 1, &rendererData->fences[rendererData->currentCommandBufferIndex], VK_TRUE, UINT64_MAX);
         if (result != VK_SUCCESS) {
-            SDL_LogError(SDL_LOG_CATEGORY_RENDER, "vkWaitForFences(): %s\n", SDL_Vulkan_GetResultString(result));
+            if (result == VK_ERROR_DEVICE_LOST) {
+                if (VULKAN_HandleDeviceLost(renderer)) {
+                    SDL_SetError("Present failed, device lost");
+                } else {
+                    // Recovering from device lost failed, error is already set
+                }
+            } else {
+                SDL_LogError(SDL_LOG_CATEGORY_RENDER, "vkWaitForFences(): %s\n", SDL_Vulkan_GetResultString(result));
+            }
             return false;
         }
 
