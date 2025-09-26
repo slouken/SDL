@@ -26,7 +26,10 @@
 
 typedef enum
 {
+    SlowBlitPixelAccess_Bitmap,
     SlowBlitPixelAccess_Index8,
+    SlowBlitPixelAccess_Gray,
+    SlowBlitPixelAccess_GrayAlpha,
     SlowBlitPixelAccess_RGB,
     SlowBlitPixelAccess_RGBA,
     SlowBlitPixelAccess_10Bit,
@@ -39,14 +42,52 @@ static SlowBlitPixelAccess GetPixelAccessMethod(SDL_PixelFormat format)
         return SlowBlitPixelAccess_Large;
     } else if (SDL_ISPIXELFORMAT_10BIT(format)) {
         return SlowBlitPixelAccess_10Bit;
+    } else if (SDL_BITSPERPIXEL(format) < 8) {
+        return SlowBlitPixelAccess_Bitmap;
     } else if (format == SDL_PIXELFORMAT_INDEX8) {
         return SlowBlitPixelAccess_Index8;
+    } else if (format == SDL_PIXELFORMAT_R8) {
+        return SlowBlitPixelAccess_Gray;
+    } else if (format == SDL_PIXELFORMAT_R8G8) {
+        return SlowBlitPixelAccess_GrayAlpha;
     } else if (SDL_ISPIXELFORMAT_ALPHA(format)) {
         return SlowBlitPixelAccess_RGBA;
     } else {
         return SlowBlitPixelAccess_RGB;
     }
 }
+
+static void GetBitmapValue(SDL_PixelFormat format, Uint8 *src, Uint64 srcx, Uint32 *value)
+{
+    const int bpp = SDL_BITSPERPIXEL(format);
+    const Uint8 mask = (Uint8)((1 << bpp) - 1);
+    Uint8 byte = src[srcx / bpp];
+    if (SDL_PIXELORDER(format) == SDL_BITMAPORDER_4321) {
+        byte >>= (srcx % bpp);
+        *value = (byte & mask);
+    } else {
+        byte <<= (srcx % bpp);
+        *value = (byte >> (8 - bpp));
+    }
+}
+
+static void SetBitmapValue(SDL_PixelFormat format, Uint8 *dst, Uint64 dstx, Uint8 value)
+{
+    const int bpp = SDL_BITSPERPIXEL(format);
+    Uint8 mask = (Uint8)((1 << bpp) - 1);
+    Uint8 byte = dst[dstx / bpp];
+    if (SDL_PIXELORDER(format) == SDL_BITMAPORDER_4321) {
+        mask <<= (srcx % bpp);
+        value <<= (srcx % bpp);
+    } else {
+        mask <<= (8 - (srcx % bpp));
+        value <<= (8 - (srcx % bpp));
+    }
+    byte &= ~mask;
+    byte |= value;
+    dst[dstx / bpp] = byte;
+}
+
 
 /* The ONE TRUE BLITTER
  * This puppy has to handle all the unoptimized cases - yes, it's slow.
@@ -81,7 +122,8 @@ void SDL_Blit_Slow(SDL_BlitInfo *info)
 
     src_access = GetPixelAccessMethod(src_fmt->format);
     dst_access = GetPixelAccessMethod(dst_fmt->format);
-    if (dst_access == SlowBlitPixelAccess_Index8) {
+    if (dst_access == SlowBiltPixelAccess_Bitmap ||
+        dst_access == SlowBlitPixelAccess_Index8) {
         last_index = SDL_LookupRGBAColor(palette_map, last_pixel, dst_pal);
     }
 
@@ -92,20 +134,41 @@ void SDL_Blit_Slow(SDL_BlitInfo *info)
     while (info->dst_h--) {
         Uint8 *src = 0;
         Uint8 *dst = info->dst;
-        int n = info->dst_w;
+        int dstx = 0;
         posx = incx / 2; // start at the middle of pixel
         srcy = posy >> 16;
-        while (n--) {
+        while (dstx < info->dst_w) {
             srcx = posx >> 16;
             src = (info->src + (srcy * info->src_pitch) + (srcx * srcbpp));
 
             switch (src_access) {
+            case SlowBlitPixelAccess_Bitmap:
+                GetBitmapValue(info->src_fmt, src, srcx, &srcpixel);
+                srcR = src_pal->colors[srcpixel].r;
+                srcG = src_pal->colors[srcpixel].g;
+                srcB = src_pal->colors[srcpixel].b;
+                srcA = src_pal->colors[srcpixel].a;
+                break;
             case SlowBlitPixelAccess_Index8:
                 srcpixel = *src;
                 srcR = src_pal->colors[srcpixel].r;
                 srcG = src_pal->colors[srcpixel].g;
                 srcB = src_pal->colors[srcpixel].b;
                 srcA = src_pal->colors[srcpixel].a;
+                break;
+            case SlowBlitPixelAccess_Gray:
+                srcpixel = *src;
+                srcR = srcpixel;
+                srcG = srcpixel;
+                srcB = srcpixel;
+                srcA = 0xFF;
+                break;
+            case SlowBlitPixelAccess_GrayAlpha:
+                srcpixel = src[0];
+                srcR = srcpixel;
+                srcG = srcpixel;
+                srcB = srcpixel;
+                srcA = src[1];
                 break;
             case SlowBlitPixelAccess_RGB:
                 DISEMBLE_RGB(src, srcbpp, src_fmt, srcpixel, srcR, srcG, srcB);
@@ -154,12 +217,33 @@ void SDL_Blit_Slow(SDL_BlitInfo *info)
             }
             if (flags & SDL_COPY_BLEND_MASK) {
                 switch (dst_access) {
+                case SlowBlitPixelAccess_Bitmap:
+                    GetBitmapValue(info->dst_fmt, dst, dstx, &dstpixel);
+                    dstR = dst_pal->colors[dstpixel].r;
+                    dstG = dst_pal->colors[dstpixel].g;
+                    dstB = dst_pal->colors[dstpixel].b;
+                    dstA = dst_pal->colors[dstpixel].a;
+                    break;
                 case SlowBlitPixelAccess_Index8:
                     dstpixel = *dst;
                     dstR = dst_pal->colors[dstpixel].r;
                     dstG = dst_pal->colors[dstpixel].g;
                     dstB = dst_pal->colors[dstpixel].b;
                     dstA = dst_pal->colors[dstpixel].a;
+                    break;
+                case SlowBlitPixelAccess_Gray:
+                    dstpixel = *dst;
+                    dstR = dstpixel;
+                    dstG = dstpixel;
+                    dstB = dstpixel;
+                    dstA = 0xFF;
+                    break;
+                case SlowBlitPixelAccess_GrayAlpha:
+                    dstpixel = dst[0];
+                    dstR = dstpixel;
+                    dstG = dstpixel;
+                    dstB = dstpixel;
+                    dstA = dst[1];
                     break;
                 case SlowBlitPixelAccess_RGB:
                     DISEMBLE_RGB(dst, dstbpp, dst_fmt, dstpixel, dstR, dstG, dstB);
@@ -280,6 +364,14 @@ void SDL_Blit_Slow(SDL_BlitInfo *info)
             }
 
             switch (dst_access) {
+            case SlowBlitPixelAccess_Bitmap:
+                dstpixel = ((dstR << 24) | (dstG << 16) | (dstB << 8) | dstA);
+                if (dstpixel != last_pixel) {
+                    last_pixel = dstpixel;
+                    last_index = SDL_LookupRGBAColor(palette_map, dstpixel, dst_pal);
+                }
+                SetBitmapValue(info->dst_fmt, dst, dstx, last_index);
+                break;
             case SlowBlitPixelAccess_Index8:
                 dstpixel = ((dstR << 24) | (dstG << 16) | (dstB << 8) | dstA);
                 if (dstpixel != last_pixel) {
@@ -287,6 +379,15 @@ void SDL_Blit_Slow(SDL_BlitInfo *info)
                     last_index = SDL_LookupRGBAColor(palette_map, dstpixel, dst_pal);
                 }
                 *dst = last_index;
+                break;
+            case SlowBlitPixelAccess_Gray:
+                // ITU-R BT.709 algorithm
+                *dst = (Uint8)SDL_roundf(dstR * 0.2126f + dstG * 0.7152f + dstB * 0.0722f);
+                break;
+            case SlowBlitPixelAccess_GrayAlpha:
+                // ITU-R BT.709 algorithm
+                dst[0] = (Uint8)SDL_roundf(dstR * 0.2126f + dstG * 0.7152f + dstB * 0.0722f);
+                dst[1] = dstA;
                 break;
             case SlowBlitPixelAccess_RGB:
                 ASSEMBLE_RGB(dst, dstbpp, dst_fmt, dstR, dstG, dstB);

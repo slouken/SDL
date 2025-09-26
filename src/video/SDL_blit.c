@@ -227,6 +227,9 @@ bool SDL_CalculateBlit(SDL_Surface *surface, SDL_Surface *dst)
         } else if (SDL_ISPIXELFORMAT_10BIT(surface->format) ||
                    SDL_ISPIXELFORMAT_10BIT(dst->format)) {
             blit = SDL_Blit_Slow;
+        } else if (SDL_ISPIXELFORMAT_GRAYSCALE(surface->format) ||
+                   SDL_ISPIXELFORMAT_GRAYSCALE(dst->format)) {
+            blit = SDL_Blit_Slow;
         }
 #ifdef SDL_HAVE_BLIT_0
         else if (SDL_BITSPERPIXEL(surface->format) < 8 &&

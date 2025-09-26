@@ -192,7 +192,9 @@ typedef enum SDL_ArrayOrder
     SDL_ARRAYORDER_ARGB,
     SDL_ARRAYORDER_BGR,
     SDL_ARRAYORDER_BGRA,
-    SDL_ARRAYORDER_ABGR
+    SDL_ARRAYORDER_ABGR,
+    SDL_ARRAYORDER_R,       /**< Available since 3.4.0 */
+    SDL_ARRAYORDER_RG       /**< Available since 3.4.0 */
 } SDL_ArrayOrder;
 
 /**
@@ -485,7 +487,27 @@ typedef enum SDL_PackedLayout
       ((SDL_PIXELORDER(format) == SDL_ARRAYORDER_ARGB) || \
        (SDL_PIXELORDER(format) == SDL_ARRAYORDER_RGBA) || \
        (SDL_PIXELORDER(format) == SDL_ARRAYORDER_ABGR) || \
-       (SDL_PIXELORDER(format) == SDL_ARRAYORDER_BGRA))))
+       (SDL_PIXELORDER(format) == SDL_ARRAYORDER_BGRA) || \
+       (SDL_PIXELORDER(format) == SDL_ARRAYORDER_RG))))
+
+
+/**
+ * A macro to determine if an SDL_PixelFormat is grayscale.
+ *
+ * Note that this macro double-evaluates its parameter, so do not use
+ * expressions with side-effects here.
+ *
+ * \param format an SDL_PixelFormat to check.
+ * \returns true if the format is grayscale, false otherwise.
+ *
+ * \threadsafety It is safe to call this macro from any thread.
+ *
+ * \since This macro is available since SDL 3.2.0.
+ */
+#define SDL_ISPIXELFORMAT_GRAYSCALE(format)   \
+     (SDL_ISPIXELFORMAT_ARRAY(format) && \
+      ((SDL_PIXELORDER(format) == SDL_ARRAYORDER_R) || \
+       (SDL_PIXELORDER(format) == SDL_ARRAYORDER_RG)))
 
 
 /**
@@ -562,6 +584,10 @@ typedef enum SDL_PixelFormat
         /* SDL_DEFINE_PIXELFORMAT(SDL_PIXELTYPE_INDEX4, SDL_BITMAPORDER_1234, 0, 4, 0), */
     SDL_PIXELFORMAT_INDEX8 = 0x13000801u,
         /* SDL_DEFINE_PIXELFORMAT(SDL_PIXELTYPE_INDEX8, 0, 0, 8, 1), */
+    SDL_PIXELFORMAT_R8 = 0x17700801u,
+        /* SDL_DEFINE_PIXELFORMAT(SDL_PIXELTYPE_ARRAYU8, SDL_ARRAYORDER_R, 0, 8, 1), */
+    SDL_PIXELFORMAT_R8G8 = 0x17801002u,
+        /* SDL_DEFINE_PIXELFORMAT(SDL_PIXELTYPE_ARRAYU8, SDL_ARRAYORDER_RG, 0, 16, 2), */
     SDL_PIXELFORMAT_RGB332 = 0x14110801u,
         /* SDL_DEFINE_PIXELFORMAT(SDL_PIXELTYPE_PACKED8, SDL_PACKEDORDER_XRGB, SDL_PACKEDLAYOUT_332, 8, 1), */
     SDL_PIXELFORMAT_XRGB4444 = 0x15120c02u,

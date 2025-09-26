@@ -29,6 +29,7 @@ static bool cycle_alpha;
 static int cycle_direction = 1;
 static int current_alpha = 0;
 static int current_color = 0;
+static bool grayscale;
 static SDL_FRect *positions;
 static SDL_FRect *velocities;
 static float sprite_w, sprite_h;
@@ -60,7 +61,7 @@ static int LoadSprite(const char *file)
         if (sprites[i]) {
             SDL_DestroyTexture(sprites[i]);
         }
-        sprites[i] = LoadTexture(state->renderers[i], file, true);
+        sprites[i] = LoadTexture(state->renderers[i], file, true, grayscale);
         if (sprites[i]) {
             sprite_w = (float)sprites[i]->w;
             sprite_h = (float)sprites[i]->h;
@@ -454,6 +455,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
             } else if (SDL_strcasecmp(argv[i], "--cyclealpha") == 0) {
                 cycle_alpha = true;
                 consumed = 1;
+            } else if (SDL_strcasecmp(argv[i], "--grayscale") == 0) {
+                grayscale = true;
+                consumed = 1;
             } else if (SDL_strcasecmp(argv[i], "--suspend-when-occluded") == 0) {
                 suspend_when_occluded = true;
                 consumed = 1;
@@ -484,6 +488,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
                 "[--blend none|blend|blend_premultiplied|add|add_premultiplied|mod|mul|sub]",
                 "[--cyclecolor]",
                 "[--cyclealpha]",
+                "[--grayscale]",
                 "[--suspend-when-occluded]",
                 "[--iterations N]",
                 "[--use-rendergeometry mode1|mode2]",

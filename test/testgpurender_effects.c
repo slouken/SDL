@@ -257,13 +257,13 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
         return SDL_APP_FAILURE;
     }
 
-    background = LoadTexture(renderer, "sample.bmp", false);
+    background = LoadTexture(renderer, "sample.bmp", false, false);
     if (!background) {
         SDL_Log("Couldn't create background: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    sprite = LoadTexture(renderer, "icon.bmp", true);
+    sprite = LoadTexture(renderer, "icon.bmp", true, false);
     if (!sprite) {
         SDL_Log("Couldn't create sprite: %s", SDL_GetError());
         return SDL_APP_FAILURE;

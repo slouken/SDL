@@ -72,7 +72,7 @@ char *GetResourceFilename(const char *user_specified, const char *def)
  *
  * If height_out is non-NULL, set it to the texture height.
  */
-SDL_Texture *LoadTexture(SDL_Renderer *renderer, const char *file, bool transparent)
+SDL_Texture *LoadTexture(SDL_Renderer *renderer, const char *file, bool transparent, bool grayscale)
 {
     SDL_Surface *temp = NULL;
     SDL_Texture *texture = NULL;
@@ -87,41 +87,62 @@ SDL_Texture *LoadTexture(SDL_Renderer *renderer, const char *file, bool transpar
     temp = SDL_LoadBMP(file);
     if (!temp) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load %s: %s", file, SDL_GetError());
-    } else {
-        /* Set transparent pixel as the pixel at (0,0) */
-        if (transparent) {
-            if (SDL_GetSurfacePalette(temp)) {
-                const Uint8 bpp = SDL_BITSPERPIXEL(temp->format);
-                const Uint8 mask = (1 << bpp) - 1;
-                if (SDL_PIXELORDER(temp->format) == SDL_BITMAPORDER_4321)
-                    SDL_SetSurfaceColorKey(temp, true, (*(Uint8 *)temp->pixels) & mask);
-                else
-                    SDL_SetSurfaceColorKey(temp, true, ((*(Uint8 *)temp->pixels) >> (8 - bpp)) & mask);
-            } else {
-                switch (SDL_BITSPERPIXEL(temp->format)) {
-                case 15:
-                    SDL_SetSurfaceColorKey(temp, true,
-                                    (*(Uint16 *)temp->pixels) & 0x00007FFF);
-                    break;
-                case 16:
-                    SDL_SetSurfaceColorKey(temp, true, *(Uint16 *)temp->pixels);
-                    break;
-                case 24:
-                    SDL_SetSurfaceColorKey(temp, true,
-                                    (*(Uint32 *)temp->pixels) & 0x00FFFFFF);
-                    break;
-                case 32:
-                    SDL_SetSurfaceColorKey(temp, true, *(Uint32 *)temp->pixels);
-                    break;
-                }
+        goto done;
+    }
+
+    if (grayscale) {
+        SDL_Surface *gray;
+        if (SDL_ISPIXELFORMAT_ALPHA(temp->format)) {
+            gray = SDL_ConvertSurface(temp, SDL_PIXELFORMAT_R8G8);
+        } else {
+            gray = SDL_ConvertSurface(temp, SDL_PIXELFORMAT_R8);
+        }
+        if (!gray) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't convert texture to grayscale: %s", SDL_GetError());
+            goto done;
+        }
+        SDL_DestroySurface(temp);
+        temp = gray;
+    }
+
+    /* Set transparent pixel as the pixel at (0,0) */
+    if (transparent) {
+        if (SDL_GetSurfacePalette(temp)) {
+            const Uint8 bpp = SDL_BITSPERPIXEL(temp->format);
+            const Uint8 mask = (1 << bpp) - 1;
+            if (SDL_PIXELORDER(temp->format) == SDL_BITMAPORDER_4321)
+                SDL_SetSurfaceColorKey(temp, true, (*(Uint8 *)temp->pixels) & mask);
+            else
+                SDL_SetSurfaceColorKey(temp, true, ((*(Uint8 *)temp->pixels) >> (8 - bpp)) & mask);
+        } else {
+            switch (SDL_BITSPERPIXEL(temp->format)) {
+            case 8:
+                SDL_SetSurfaceColorKey(temp, true, *(Uint8 *)temp->pixels);
+                break;
+            case 15:
+                SDL_SetSurfaceColorKey(temp, true,
+                                (*(Uint16 *)temp->pixels) & 0x00007FFF);
+                break;
+            case 16:
+                SDL_SetSurfaceColorKey(temp, true, *(Uint16 *)temp->pixels);
+                break;
+            case 24:
+                SDL_SetSurfaceColorKey(temp, true,
+                                (*(Uint32 *)temp->pixels) & 0x00FFFFFF);
+                break;
+            case 32:
+                SDL_SetSurfaceColorKey(temp, true, *(Uint32 *)temp->pixels);
+                break;
             }
         }
-
-        texture = SDL_CreateTextureFromSurface(renderer, temp);
-        if (!texture) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create texture: %s", SDL_GetError());
-        }
     }
+
+    texture = SDL_CreateTextureFromSurface(renderer, temp);
+    if (!texture) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't create texture: %s", SDL_GetError());
+    }
+
+done:
     SDL_DestroySurface(temp);
     if (path) {
         SDL_free(path);
