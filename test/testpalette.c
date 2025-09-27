@@ -367,8 +367,12 @@ static void loop(void)
     SDL_FRect dst2 = { 0.0f, WINDOW_HEIGHT - 32.0f, 32.0f, 32.0f };
     SDL_FRect dst3 = { WINDOW_WIDTH - 32.0f, 0.0f, 32.0f, 32.0f };
     SDL_FRect dst4 = { WINDOW_WIDTH - 32.0f, WINDOW_HEIGHT - 32.0f, 32.0f, 32.0f };
+    SDL_FRect dst5 = { 0.0f, 32.0f + 2.0f, 32.0f, 32.0f };
+    SDL_FRect dst6 = { WINDOW_WIDTH - 32.0f, 32.0f + 2.0f, 32.0f, 32.0f };
     const SDL_Color black = { 0, 0, 0, SDL_ALPHA_OPAQUE };
     const SDL_Color white = { 255, 255, 255, SDL_ALPHA_OPAQUE };
+    const SDL_Color red = { 255, 0, 0, SDL_ALPHA_OPAQUE };
+    const SDL_Color blue = { 0, 0, 255, SDL_ALPHA_OPAQUE };
 
     /* Check for events */
     while (SDL_PollEvent(&event)) {
@@ -412,17 +416,27 @@ static void loop(void)
      * This tests changing palette colors within a single frame
      */
     SDL_SetPaletteColors(palette, &black, 1, 1);
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+    SDL_SetRenderDrawColor(renderer, black.r, black.g, black.b, black.a);
     SDL_RenderDebugText(renderer, dst1.x + 32.0f + 2.0f, dst1.y + 12, "Black");
     SDL_RenderTexture(renderer, black_texture1, &src, &dst1);
     SDL_RenderDebugText(renderer, dst2.x + 32.0f + 2.0f, dst2.y + 12, "Black");
     SDL_RenderTexture(renderer, black_texture2, &src, &dst2);
     SDL_SetPaletteColors(palette, &white, 1, 1);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+    SDL_SetRenderDrawColor(renderer, white.r, white.g, white.b, white.a);
     SDL_RenderDebugText(renderer, dst3.x - 40.0f - 2.0f, dst3.y + 12, "White");
     SDL_RenderTexture(renderer, white_texture1, &src, &dst3);
     SDL_RenderDebugText(renderer, dst4.x - 40.0f - 2.0f, dst4.y + 12, "White");
     SDL_RenderTexture(renderer, white_texture2, &src, &dst4);
+
+    /* Draw the same textures again with different colors */
+    SDL_SetPaletteColors(palette, &red, 1, 1);
+    SDL_SetRenderDrawColor(renderer, red.r, red.g, red.b, red.a);
+    SDL_RenderDebugText(renderer, dst5.x + 32.0f + 2.0f, dst5.y + 12, "Red");
+    SDL_RenderTexture(renderer, black_texture1, &src, &dst5);
+    SDL_SetPaletteColors(palette, &blue, 1, 1);
+    SDL_SetRenderDrawColor(renderer, blue.r, blue.g, blue.b, blue.a);
+    SDL_RenderDebugText(renderer, dst6.x - 40.0f - 2.0f, dst6.y + 12, "Blue");
+    SDL_RenderTexture(renderer, white_texture1, &src, &dst6);
 
     SDL_RenderPresent(renderer);
     SDL_Delay(10);
