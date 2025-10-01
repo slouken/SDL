@@ -474,6 +474,8 @@ static VkFormat SDLPixelFormatToVkTextureFormat(Uint32 format, Uint32 output_col
     case SDL_PIXELFORMAT_NV12:
     case SDL_PIXELFORMAT_NV21:
         return  VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
+    case SDL_PIXELFORMAT_I010:
+        return VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16;
     case SDL_PIXELFORMAT_P010:
         return VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16;
     default:
@@ -2610,6 +2612,7 @@ static bool VULKAN_CreateTexture(SDL_Renderer *renderer, SDL_Texture *texture, S
         texture->format == SDL_PIXELFORMAT_IYUV ||
         texture->format == SDL_PIXELFORMAT_NV12 ||
         texture->format == SDL_PIXELFORMAT_NV21 ||
+        texture->format == SDL_PIXELFORMAT_I010 ||
         texture->format == SDL_PIXELFORMAT_P010) {
         const uint32_t YUV_SD_THRESHOLD = 576;
 
@@ -2639,7 +2642,7 @@ static bool VULKAN_CreateTexture(SDL_Renderer *renderer, SDL_Texture *texture, S
             samplerYcbcrConversionCreateInfo.ycbcrModel = VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_2020_KHR;
             break;
         case SDL_MATRIX_COEFFICIENTS_UNSPECIFIED:
-            if (texture->format == SDL_PIXELFORMAT_P010) {
+            if (texture->format == SDL_PIXELFORMAT_I010 || texture->format == SDL_PIXELFORMAT_P010) {
                 samplerYcbcrConversionCreateInfo.ycbcrModel = VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_2020_KHR;
             } else if (height > YUV_SD_THRESHOLD) {
                 samplerYcbcrConversionCreateInfo.ycbcrModel = VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_709_KHR;
@@ -3408,6 +3411,7 @@ static void VULKAN_SetupShaderConstants(SDL_Renderer *renderer, const SDL_Render
         case SDL_PIXELFORMAT_NV21:
             constants->input_type = INPUTTYPE_SRGB;
             break;
+        case SDL_PIXELFORMAT_I010:
         case SDL_PIXELFORMAT_P010:
             constants->input_type = INPUTTYPE_HDR10;
             break;
@@ -4479,6 +4483,7 @@ static bool VULKAN_CreateRenderer(SDL_Renderer *renderer, SDL_Window *window, SD
         SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_IYUV);
         SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_NV12);
         SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_NV21);
+        SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_I010);
         SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_P010);
     }
 #endif

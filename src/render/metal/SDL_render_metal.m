@@ -722,6 +722,7 @@ static bool METAL_CreateTexture(SDL_Renderer *renderer, SDL_Texture *texture, SD
         case SDL_PIXELFORMAT_NV21:
             pixfmt = MTLPixelFormatR8Unorm;
             break;
+        case SDL_PIXELFORMAT_I010:
         case SDL_PIXELFORMAT_P010:
             pixfmt = MTLPixelFormatR16Unorm;
             break;
@@ -757,10 +758,16 @@ static bool METAL_CreateTexture(SDL_Renderer *renderer, SDL_Texture *texture, SD
 
         mtltextureUv = nil;
 #ifdef SDL_HAVE_YUV
-        BOOL yuv = (texture->format == SDL_PIXELFORMAT_IYUV || texture->format == SDL_PIXELFORMAT_YV12);
+        BOOL yuv = (texture->format == SDL_PIXELFORMAT_IYUV || texture->format == SDL_PIXELFORMAT_YV12 || texture->format == SDL_PIXELFORMAT_I010);
         BOOL nv12 = (texture->format == SDL_PIXELFORMAT_NV12 || texture->format == SDL_PIXELFORMAT_NV21 || texture->format == SDL_PIXELFORMAT_P010);
 
-        if (yuv) {
+        if (texture->format == SDL_PIXELFORMAT_I010) {
+            mtltexdesc.pixelFormat = MTLPixelFormatR16Unorm;
+            mtltexdesc.width = (texture->w + 1) / 2;
+            mtltexdesc.height = (texture->h + 1) / 2;
+            mtltexdesc.textureType = MTLTextureType2DArray;
+            mtltexdesc.arrayLength = 2;
+        } else if (yuv) {
             mtltexdesc.pixelFormat = MTLPixelFormatR8Unorm;
             mtltexdesc.width = (texture->w + 1) / 2;
             mtltexdesc.height = (texture->h + 1) / 2;
@@ -1412,6 +1419,7 @@ static void SetupShaderConstants(SDL_Renderer *renderer, const SDL_RenderCommand
             break;
         case SDL_PIXELFORMAT_YV12:
         case SDL_PIXELFORMAT_IYUV:
+        case SDL_PIXELFORMAT_I010:
             constants->texture_type = TEXTURETYPE_YUV;
             break;
         case SDL_PIXELFORMAT_NV12:
@@ -2306,6 +2314,7 @@ static bool METAL_CreateRenderer(SDL_Renderer *renderer, SDL_Window *window, SDL
         SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_IYUV);
         SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_NV12);
         SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_NV21);
+        SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_I010);
         SDL_AddSupportedTextureFormat(renderer, SDL_PIXELFORMAT_P010);
 
 #if defined(SDL_PLATFORM_MACOS) || TARGET_OS_MACCATALYST

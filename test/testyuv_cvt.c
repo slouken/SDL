@@ -343,6 +343,107 @@ static Uint16 Pack10to16(int v)
     return (Uint16)(v << 6);
 }
 
+static void ConvertRGBtoPlanar2x2_I010(Uint32 format, Uint8 *src, int pitch, Uint8 *out, int w, int h, YUV_CONVERSION_MODE mode, int monochrome, int luminance)
+{
+    int x, y;
+    int yuv[4][3];
+    Uint16 *Y1, *Y2, *U, *V;
+    Uint8 *rgb1, *rgb2;
+    int rgb_row_advance = (pitch - w * 3) + pitch;
+    int UV_advance;
+
+    rgb1 = src;
+    rgb2 = src + pitch;
+
+    Y1 = (Uint16 *)out;
+    Y2 = Y1 + w;
+    switch (format) {
+    case SDL_PIXELFORMAT_I010:
+        U = (Y1 + h * w);
+        V = U + ((h + 1) / 2) * ((w + 1) / 2);
+        UV_advance = 1;
+        break;
+    default:
+        SDL_assert(!"Unsupported planar YUV format");
+        return;
+    }
+
+    for (y = 0; y < (h - 1); y += 2) {
+        for (x = 0; x < (w - 1); x += 2) {
+            RGBtoYUV(rgb1, 8, yuv[0], 10, mode, monochrome, luminance);
+            rgb1 += 3;
+            *Y1++ = Pack10to16(yuv[0][0]);
+
+            RGBtoYUV(rgb1, 8, yuv[1], 10, mode, monochrome, luminance);
+            rgb1 += 3;
+            *Y1++ = Pack10to16(yuv[1][0]);
+
+            RGBtoYUV(rgb2, 8, yuv[2], 10, mode, monochrome, luminance);
+            rgb2 += 3;
+            *Y2++ = Pack10to16(yuv[2][0]);
+
+            RGBtoYUV(rgb2, 8, yuv[3], 10, mode, monochrome, luminance);
+            rgb2 += 3;
+            *Y2++ = Pack10to16(yuv[3][0]);
+
+            *U = Pack10to16(SDL_floorf((yuv[0][1] + yuv[1][1] + yuv[2][1] + yuv[3][1]) / 4.0f + 0.5f));
+            U += UV_advance;
+
+            *V = Pack10to16(SDL_floorf((yuv[0][2] + yuv[1][2] + yuv[2][2] + yuv[3][2]) / 4.0f + 0.5f));
+            V += UV_advance;
+        }
+        /* Last column */
+        if (x == (w - 1)) {
+            RGBtoYUV(rgb1, 8, yuv[0], 10, mode, monochrome, luminance);
+            rgb1 += 3;
+            *Y1++ = Pack10to16(yuv[0][0]);
+
+            RGBtoYUV(rgb2, 8, yuv[2], 10, mode, monochrome, luminance);
+            rgb2 += 3;
+            *Y2++ = Pack10to16(yuv[2][0]);
+
+            *U = Pack10to16(SDL_floorf((yuv[0][1] + yuv[2][1]) / 2.0f + 0.5f));
+            U += UV_advance;
+
+            *V = Pack10to16(SDL_floorf((yuv[0][2] + yuv[2][2]) / 2.0f + 0.5f));
+            V += UV_advance;
+        }
+        Y1 += w;
+        Y2 += w;
+        rgb1 += rgb_row_advance;
+        rgb2 += rgb_row_advance;
+    }
+    /* Last row */
+    if (y == (h - 1)) {
+        for (x = 0; x < (w - 1); x += 2) {
+            RGBtoYUV(rgb1, 8, yuv[0], 10, mode, monochrome, luminance);
+            rgb1 += 3;
+            *Y1++ = Pack10to16(yuv[0][0]);
+
+            RGBtoYUV(rgb1, 8, yuv[1], 10, mode, monochrome, luminance);
+            rgb1 += 3;
+            *Y1++ = Pack10to16(yuv[1][0]);
+
+            *U = Pack10to16(SDL_floorf((yuv[0][1] + yuv[1][1]) / 2.0f + 0.5f));
+            U += UV_advance;
+
+            *V = Pack10to16(SDL_floorf((yuv[0][2] + yuv[1][2]) / 2.0f + 0.5f));
+            V += UV_advance;
+        }
+        /* Last column */
+        if (x == (w - 1)) {
+            RGBtoYUV(rgb1, 8, yuv[0], 10, mode, monochrome, luminance);
+            *Y1++ = Pack10to16(yuv[0][0]);
+
+            *U = Pack10to16(yuv[0][1]);
+            U += UV_advance;
+
+            *V = Pack10to16(yuv[0][2]);
+            V += UV_advance;
+        }
+    }
+}
+
 static void ConvertRGBtoPlanar2x2_P010(Uint32 format, Uint8 *src, int pitch, Uint8 *out, int w, int h, YUV_CONVERSION_MODE mode, int monochrome, int luminance)
 {
     int x, y;
@@ -517,6 +618,9 @@ static void ConvertRGBtoPacked4(Uint32 format, Uint8 *src, int pitch, Uint8 *out
 bool ConvertRGBtoYUV(Uint32 format, Uint8 *src, int pitch, Uint8 *out, int w, int h, YUV_CONVERSION_MODE mode, int monochrome, int luminance)
 {
     switch (format) {
+    case SDL_PIXELFORMAT_I010:
+        ConvertRGBtoPlanar2x2_I010(format, src, pitch, out, w, h, mode, monochrome, luminance);
+        return true;
     case SDL_PIXELFORMAT_P010:
         ConvertRGBtoPlanar2x2_P010(format, src, pitch, out, w, h, mode, monochrome, luminance);
         return true;
@@ -539,6 +643,7 @@ bool ConvertRGBtoYUV(Uint32 format, Uint8 *src, int pitch, Uint8 *out, int w, in
 int CalculateYUVPitch(Uint32 format, int width)
 {
     switch (format) {
+    case SDL_PIXELFORMAT_I010:
     case SDL_PIXELFORMAT_P010:
         return width * 2;
     case SDL_PIXELFORMAT_YV12:
