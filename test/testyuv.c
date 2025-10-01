@@ -208,6 +208,30 @@ static bool run_automated_tests(int pattern_size, int extra_pitch)
 
     /* Verify round trip through BT.2020 */
     colorspace = SDL_COLORSPACE_BT2020_FULL;
+    if (!ConvertRGBtoYUV(SDL_PIXELFORMAT_I010, pattern->pixels, pattern->pitch, yuv1, pattern->w, pattern->h, YUV_CONVERSION_BT2020, 0, 100)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ConvertRGBtoYUV() doesn't support converting to %s", SDL_GetPixelFormatName(SDL_PIXELFORMAT_I010));
+        goto done;
+    }
+    yuv1_pitch = CalculateYUVPitch(SDL_PIXELFORMAT_I010, pattern->w);
+    if (!verify_yuv_data(SDL_PIXELFORMAT_I010, colorspace, yuv1, yuv1_pitch, pattern, tight_tolerance)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed conversion from %s to RGB", SDL_GetPixelFormatName(SDL_PIXELFORMAT_I010));
+        goto done;
+    }
+
+    /* The pitch needs to be Uint16 aligned for I010 pixels */
+    yuv1_pitch = CalculateYUVPitch(SDL_PIXELFORMAT_I010, pattern->w) + ((extra_pitch + 1) & ~1);
+    if (!SDL_ConvertPixelsAndColorspace(pattern->w, pattern->h, pattern->format, SDL_COLORSPACE_SRGB, 0, pattern->pixels, pattern->pitch, SDL_PIXELFORMAT_I010, colorspace, 0, yuv1, yuv1_pitch)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't convert %s to %s: %s", SDL_GetPixelFormatName(pattern->format), SDL_GetPixelFormatName(SDL_PIXELFORMAT_I010), SDL_GetError());
+        goto done;
+    }
+    /* Going through XRGB2101010 format during I010 conversion is slightly lossy, so use looser tolerance here */
+    if (!verify_yuv_data(SDL_PIXELFORMAT_I010, colorspace, yuv1, yuv1_pitch, pattern, loose_tolerance)) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed conversion from RGB to %s", SDL_GetPixelFormatName(SDL_PIXELFORMAT_I010));
+        goto done;
+    }
+
+    /* Verify round trip through BT.2020 */
+    colorspace = SDL_COLORSPACE_BT2020_FULL;
     if (!ConvertRGBtoYUV(SDL_PIXELFORMAT_P010, pattern->pixels, pattern->pitch, yuv1, pattern->w, pattern->h, YUV_CONVERSION_BT2020, 0, 100)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "ConvertRGBtoYUV() doesn't support converting to %s", SDL_GetPixelFormatName(SDL_PIXELFORMAT_P010));
         goto done;
@@ -631,7 +655,7 @@ int main(int argc, char **argv)
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't set create texture: %s", SDL_GetError());
         return 5;
     }
-    if (planar && (yuv_format == SDL_PIXELFORMAT_YV12 || yuv_format == SDL_PIXELFORMAT_IYUV)) {
+    if (planar && (yuv_format == SDL_PIXELFORMAT_YV12 || yuv_format == SDL_PIXELFORMAT_IYUV || yuv_format == SDL_PIXELFORMAT_I010)) {
         const int Yrows = original->h;
         const int UVrows = ((original->h + 1) / 2);
         const int src_Ypitch = pitch;

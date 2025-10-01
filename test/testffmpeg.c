@@ -322,6 +322,13 @@ static SDL_PixelFormat GetTextureFormat(enum AVPixelFormat format)
         return SDL_PIXELFORMAT_NV12;
     case AV_PIX_FMT_NV21:
         return SDL_PIXELFORMAT_NV21;
+#if SDL_BYTEORDER == SDL_LIL_ENDIAN
+    case AV_PIX_FMT_YUV420P10LE:
+        return SDL_PIXELFORMAT_I010;
+#else
+    case AV_PIX_FMT_YUV420P10BE:
+        return SDL_PIXELFORMAT_I010;
+#endif
     case AV_PIX_FMT_P010:
         return SDL_PIXELFORMAT_P010;
     default:
@@ -632,6 +639,7 @@ static bool GetTextureForMemoryFrame(AVFrame *frame, SDL_Texture **texture)
         break;
     }
     case SDL_PIXELFORMAT_IYUV:
+    case SDL_PIXELFORMAT_I010:
         if (frame->linesize[0] > 0 && frame->linesize[1] > 0 && frame->linesize[2] > 0) {
             SDL_UpdateYUVTexture(*texture, NULL, frame->data[0], frame->linesize[0],
                                  frame->data[1], frame->linesize[1],

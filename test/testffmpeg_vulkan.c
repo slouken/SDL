@@ -920,6 +920,9 @@ SDL_Texture *CreateVulkanVideoTexture(VulkanVideoContext *context, AVFrame *fram
     case VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
         format = SDL_PIXELFORMAT_NV12;
         break;
+    case VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16:
+        format = SDL_PIXELFORMAT_I010;
+        break;
     case VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16:
         format = SDL_PIXELFORMAT_P010;
         break;

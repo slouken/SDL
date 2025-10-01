@@ -189,7 +189,12 @@ static bool GetYUVConversionType(SDL_Colorspace colorspace, YCbCrType *yuv_type)
 
 static bool IsPlanar2x2Format(SDL_PixelFormat format)
 {
-    return format == SDL_PIXELFORMAT_YV12 || format == SDL_PIXELFORMAT_IYUV || format == SDL_PIXELFORMAT_NV12 || format == SDL_PIXELFORMAT_NV21 || format == SDL_PIXELFORMAT_P010;
+    return format == SDL_PIXELFORMAT_YV12 ||
+           format == SDL_PIXELFORMAT_IYUV ||
+           format == SDL_PIXELFORMAT_NV12 ||
+           format == SDL_PIXELFORMAT_NV21 ||
+           format == SDL_PIXELFORMAT_I010 ||
+           format == SDL_PIXELFORMAT_P010;
 }
 
 static bool IsPacked4Format(Uint32 format)
@@ -207,6 +212,7 @@ static bool GetYUVPlanes(int width, int height, SDL_PixelFormat format, const vo
     switch (format) {
     case SDL_PIXELFORMAT_YV12:
     case SDL_PIXELFORMAT_IYUV:
+    case SDL_PIXELFORMAT_I010:
         pitches[0] = yuv_pitch;
         pitches[1] = (pitches[0] + 1) / 2;
         pitches[2] = (pitches[0] + 1) / 2;
@@ -286,6 +292,13 @@ static bool GetYUVPlanes(int width, int height, SDL_PixelFormat format, const vo
         *y_stride = pitches[0];
         *v = planes[1];
         *u = *v + 1;
+        *uv_stride = pitches[1];
+        break;
+    case SDL_PIXELFORMAT_I010:
+        *y = planes[0];
+        *y_stride = pitches[0];
+        *v = planes[2];
+        *u = planes[1];
         *uv_stride = pitches[1];
         break;
     case SDL_PIXELFORMAT_P010:
@@ -1224,7 +1237,7 @@ static bool SDL_ConvertPixels_YUV_to_YUV_Copy(int width, int height, SDL_PixelFo
             dst = (Uint8 *)dst + dst_pitch;
         }
 
-        if (format == SDL_PIXELFORMAT_YV12 || format == SDL_PIXELFORMAT_IYUV) {
+        if (format == SDL_PIXELFORMAT_YV12 || format == SDL_PIXELFORMAT_IYUV || format == SDL_PIXELFORMAT_I010) {
             // U and V planes are a quarter the size of the Y plane, rounded up
             width = (width + 1) / 2;
             height = (height + 1) / 2;
