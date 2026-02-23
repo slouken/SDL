@@ -105,21 +105,21 @@ Required for the app to discover OpenXR runtimes:
 
 ```xml
 <!-- VR head tracking (standard OpenXR requirement) -->
-<uses-feature android:name="android.hardware.vr.headtracking" 
-              android:required="true" 
+<uses-feature android:name="android.hardware.vr.headtracking"
+              android:required="true"
               android:version="1" />
 
 <!-- Touchscreen not required for VR -->
-<uses-feature android:name="android.hardware.touchscreen" 
+<uses-feature android:name="android.hardware.touchscreen"
               android:required="false" />
 
 <!-- Graphics requirements -->
 <uses-feature android:glEsVersion="0x00030002" android:required="true" />
-<uses-feature android:name="android.hardware.vulkan.level" 
-              android:required="true" 
+<uses-feature android:name="android.hardware.vulkan.level"
+              android:required="true"
               android:version="1" />
-<uses-feature android:name="android.hardware.vulkan.version" 
-              android:required="true" 
+<uses-feature android:name="android.hardware.vulkan.version"
+              android:required="true"
               android:version="0x00401000" />
 ```
 
@@ -159,7 +159,7 @@ These are **required** for apps to run properly on Meta Quest devices. Without t
 ```xml
 <application ...>
     <!-- Required: Specifies which Quest devices are supported -->
-    <meta-data android:name="com.oculus.supportedDevices" 
+    <meta-data android:name="com.oculus.supportedDevices"
                android:value="quest|quest2|questpro|quest3|quest3s" />
 </application>
 ```
@@ -169,7 +169,7 @@ These are **required** for apps to run properly on Meta Quest devices. Without t
 ```xml
 <application ...>
     <!-- Properly handles when user opens the Quest system menu -->
-    <meta-data android:name="com.oculus.vr.focusaware" 
+    <meta-data android:name="com.oculus.vr.focusaware"
                android:value="true" />
 </application>
 ```
@@ -178,14 +178,14 @@ These are **required** for apps to run properly on Meta Quest devices. Without t
 
 ```xml
 <!-- Feature declaration -->
-<uses-feature android:name="oculus.software.handtracking" 
+<uses-feature android:name="oculus.software.handtracking"
               android:required="false" />
 
 <application ...>
     <!-- V2.0 allows app to launch without controllers -->
-    <meta-data android:name="com.oculus.handtracking.version" 
+    <meta-data android:name="com.oculus.handtracking.version"
                android:value="V2.0" />
-    <meta-data android:name="com.oculus.handtracking.frequency" 
+    <meta-data android:name="com.oculus.handtracking.frequency"
                android:value="HIGH" />
 </application>
 ```
@@ -194,11 +194,11 @@ These are **required** for apps to run properly on Meta Quest devices. Without t
 
 ```xml
 <application ...>
-    <meta-data android:name="com.oculus.ossplash" 
+    <meta-data android:name="com.oculus.ossplash"
                android:value="true" />
-    <meta-data android:name="com.oculus.ossplash.colorspace" 
+    <meta-data android:name="com.oculus.ossplash.colorspace"
                android:value="QUEST_SRGB_NONGAMMA" />
-    <meta-data android:name="com.oculus.ossplash.background" 
+    <meta-data android:name="com.oculus.ossplash.background"
                android:resource="@drawable/vr_splash" />
 </application>
 ```
@@ -226,7 +226,7 @@ For Pico Neo, Pico 4, and other Pico headsets:
 ```xml
 <application ...>
     <!-- Pico device support -->
-    <meta-data android:name="pvr.app.type" 
+    <meta-data android:name="pvr.app.type"
                android:value="vr" />
 </application>
 ```
