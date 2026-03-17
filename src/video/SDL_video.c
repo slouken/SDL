@@ -2203,7 +2203,7 @@ SDL_PixelFormat SDL_GetWindowPixelFormat(SDL_Window *window)
 }
 
 #define CREATE_FLAGS \
-    (SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_POPUP_MENU | SDL_WINDOW_UTILITY | SDL_WINDOW_TOOLTIP | SDL_WINDOW_VULKAN | SDL_WINDOW_MINIMIZED | SDL_WINDOW_METAL | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_NOT_FOCUSABLE | SDL_WINDOW_FILL_DOCUMENT)
+    (SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_POPUP_MENU | SDL_WINDOW_UTILITY | SDL_WINDOW_TOOLTIP | SDL_WINDOW_VULKAN | SDL_WINDOW_MINIMIZED | SDL_WINDOW_METAL | SDL_WINDOW_TRANSPARENT | SDL_WINDOW_NOT_FOCUSABLE | SDL_WINDOW_FILL_DOCUMENT | SDL_WINDOW_VISIONOS_VOLUMETRIC | SDL_WINDOW_VISIONOS_IMMERSIVE)
 
 static SDL_INLINE bool IsAcceptingDragAndDrop(void)
 {
@@ -6480,5 +6480,21 @@ const char *SDL_GetCSSCursorName(SDL_SystemCursor id, const char **fallback_name
     default:
         return "default";
     }
+}
+#endif
+
+/* visionOS volumetric window support */
+
+#ifndef SDL_PLATFORM_VISIONOS
+/* Stub implementations when visionOS is not available */
+
+bool SDL_SetVisionOSWindowCurvature(SDL_Window *window, float curvature)
+{
+    return SDL_Unsupported();
+}
+
+float SDL_GetVisionOSWindowCurvature(SDL_Window *window)
+{
+    return 0.0f;
 }
 #endif

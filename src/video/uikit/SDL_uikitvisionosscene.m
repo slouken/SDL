@@ -1,0 +1,354 @@
+/*
+  Simple DirectMedia Layer
+  Copyright (C) 1997-2026 Sam Lantinga <slouken@libsdl.org>
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+*/
+#include "SDL_internal.h"
+
+#ifdef SDL_PLATFORM_VISIONOS
+
+#import "SDL_uikitvisionosscene.h"
+#include "../../events/SDL_events_c.h"
+
+// Called from Swift scene delegates when visionOS disconnects a scene
+// (e.g. user closes the volumetric/immersive window via system close button).
+void SDL_VisionOS_SendQuitOnSceneDisconnect(void)
+{
+    SDL_Log("SDL_VisionOS_SendQuitOnSceneDisconnect: Posting SDL_EVENT_QUIT");
+    SDL_SendQuit();
+}
+
+// Forward declare the Swift delegate class.
+@class SDL_VolumetricHostingSceneDelegate;
+
+@interface SDL_UIKitVisionOSScene ()
+
+@property (nonatomic, assign, readwrite) BOOL isPresented;
+@property (nonatomic, assign, readwrite) SDL_VisionOSSceneMode mode;
+@property (nonatomic, strong) UISceneSession *sceneSession;
+@property (nonatomic, assign) CGSize contentSize;
+@property (nonatomic, assign) CGFloat curvature;
+@property (nonatomic, strong) id<MTLDevice> metalDevice;
+@property (nonatomic, strong) UISceneSession *mainSceneSession;
+
+@end
+
+// Returns the ObjC class name and scene ID for the given mode
+static void SDL_GetSceneConfig(SDL_VisionOSSceneMode mode,
+                               NSString * __autoreleasing *outClassName,
+                               NSString * __autoreleasing *outActivateSelector,
+                               NSString * __autoreleasing *outDismissSelector)
+{
+    if (mode == SDL_VisionOSSceneModeImmersive) {
+        *outClassName = @"SDL_ImmersiveHostingSceneDelegate";
+        *outActivateSelector = @"activateImmersiveSceneWithErrorHandler:";
+        *outDismissSelector = @"dismissImmersiveScene";
+    } else {
+        *outClassName = @"SDL_VolumetricHostingSceneDelegate";
+        *outActivateSelector = @"activateVolumetricSceneWithErrorHandler:";
+        *outDismissSelector = @"dismissVolumetricScene";
+    }
+}
+
+static const char *SDL_GetSceneModeName(SDL_VisionOSSceneMode mode)
+{
+    return (mode == SDL_VisionOSSceneModeImmersive) ? "immersive" : "volumetric";
+}
+
+// Helper function to get the Swift hosting delegate class for the given mode
+static Class SDL_GetHostingDelegateClass(SDL_VisionOSSceneMode mode)
+{
+    NSString *className = nil;
+    NSString *unused1 = nil;
+    NSString *unused2 = nil;
+    SDL_GetSceneConfig(mode, &className, &unused1, &unused2);
+
+    // The @objc(...) attribute on the Swift class gives it a stable ObjC name
+    Class delegateClass = NSClassFromString(className);
+    if (delegateClass) {
+        return delegateClass;
+    }
+
+    // Fallback: try with module prefixes for different build configurations
+    NSArray<NSString *> *moduleNames = @[@"SDL3", @"SDL", @"SDL_iOS_Sample"];
+    for (NSString *moduleName in moduleNames) {
+        NSString *prefixedName = [NSString stringWithFormat:@"%@.%@", moduleName, className];
+        delegateClass = NSClassFromString(prefixedName);
+        if (delegateClass) {
+            SDL_Log("SDL_UIKitVisionOSScene: Found delegate class: %s", [prefixedName UTF8String]);
+            return delegateClass;
+        }
+    }
+
+    SDL_LogError(SDL_LOG_CATEGORY_VIDEO,
+                "SDL_UIKitVisionOSScene: Could not find %s delegate class", [className UTF8String]);
+    return nil;
+}
+
+// Helper function to get the shared delegate instance
+static id SDL_GetSharedDelegate(SDL_VisionOSSceneMode mode)
+{
+    Class delegateClass = SDL_GetHostingDelegateClass(mode);
+    if (!delegateClass) {
+        return nil;
+    }
+
+    SEL sharedSelector = NSSelectorFromString(@"shared");
+    if (![delegateClass respondsToSelector:sharedSelector]) {
+        return nil;
+    }
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+    return [delegateClass performSelector:sharedSelector];
+#pragma clang diagnostic pop
+}
+
+@implementation SDL_UIKitVisionOSScene
+
+- (instancetype)initWithMode:(SDL_VisionOSSceneMode)mode
+                 windowScene:(UIWindowScene *)windowScene
+                 metalDevice:(id<MTLDevice>)device
+                   curvature:(CGFloat)curvature
+                        size:(CGSize)size
+            mainSceneSession:(UISceneSession *)mainSceneSession
+{
+    self = [super init];
+    if (!self) {
+        return nil;
+    }
+
+    _mode = mode;
+    _isPresented = NO;
+    _contentSize = size;
+    _curvature = curvature;
+    _metalDevice = device;
+    _mainSceneSession = mainSceneSession;
+
+    SDL_Log("SDL_UIKitVisionOSScene (%s): Initialized with size %.0fx%.0f, curvature %.2f",
+            SDL_GetSceneModeName(mode), size.width, size.height, curvature);
+
+    return self;
+}
+
+- (void)present
+{
+    if (_isPresented) {
+        SDL_Log("SDL_UIKitVisionOSScene (%s): Already presented", SDL_GetSceneModeName(_mode));
+        return;
+    }
+
+    const char *modeName = SDL_GetSceneModeName(_mode);
+    SDL_Log("SDL_UIKitVisionOSScene (%s): Presenting via UIHostingSceneDelegate bridging", modeName);
+
+    Class delegateClass = SDL_GetHostingDelegateClass(_mode);
+    if (!delegateClass) {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO,
+                    "SDL_UIKitVisionOSScene (%s): Delegate class not found", modeName);
+        return;
+    }
+
+    // Get the shared Swift scene delegate for configuration
+    id sharedDelegate = SDL_GetSharedDelegate(_mode);
+    if (!sharedDelegate) {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO,
+                    "SDL_UIKitVisionOSScene (%s): Failed to get shared delegate", modeName);
+        return;
+    }
+
+    // Configure the delegate with curvature and Metal device
+    SEL configureSelector = NSSelectorFromString(@"configureWithCurvature:metalDevice:");
+    if ([sharedDelegate respondsToSelector:configureSelector]) {
+        NSMethodSignature *signature = [sharedDelegate methodSignatureForSelector:configureSelector];
+        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+        [invocation setSelector:configureSelector];
+        [invocation setTarget:sharedDelegate];
+
+        float curvatureFloat = (float)_curvature;
+        [invocation setArgument:&curvatureFloat atIndex:2];
+        [invocation setArgument:&_metalDevice atIndex:3];
+        [invocation invoke];
+
+        SDL_Log("SDL_UIKitVisionOSScene (%s): Configured with curvature %.2f", modeName, curvatureFloat);
+    } else {
+        SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO,
+                   "SDL_UIKitVisionOSScene (%s): Delegate doesn't respond to configure", modeName);
+    }
+
+    // Set the static scene-connected callback on the delegate CLASS (not instance).
+    // SwiftUI creates a new delegate instance for each scene, so instance properties
+    // set on 'shared' won't be seen by the new instance. Static properties work.
+    __weak typeof(self) weakSelf = self;
+    SEL callbackSelector = NSSelectorFromString(@"setSceneConnectedCallback:");
+    if ([delegateClass respondsToSelector:callbackSelector]) {
+        void (^callback)(UISceneSession *) = ^(UISceneSession *session) {
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (strongSelf) {
+                strongSelf.sceneSession = session;
+                strongSelf.isPresented = YES;
+                SDL_Log("SDL_UIKitVisionOSScene (%s): Scene connected, session: %p",
+                        SDL_GetSceneModeName(strongSelf.mode), session);
+            }
+        };
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        [delegateClass performSelector:callbackSelector withObject:callback];
+#pragma clang diagnostic pop
+    }
+
+    if (_mainSceneSession) {
+        SDL_Log("SDL_UIKitVisionOSScene (%s): Keeping main scene session alive", modeName);
+    }
+
+    // Activate using the UIHostingSceneDelegate bridging API
+    NSString *unused1 = nil;
+    NSString *activateSelectorName = nil;
+    NSString *unused2 = nil;
+    SDL_GetSceneConfig(_mode, &unused1, &activateSelectorName, &unused2);
+
+    SEL activateSelector = NSSelectorFromString(activateSelectorName);
+    if (![delegateClass respondsToSelector:activateSelector]) {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO,
+                    "SDL_UIKitVisionOSScene (%s): Delegate doesn't respond to %s",
+                    modeName, [activateSelectorName UTF8String]);
+        return;
+    }
+
+    void (^errorBlock)(NSError *) = ^(NSError *error) {
+        SDL_LogError(SDL_LOG_CATEGORY_VIDEO,
+                    "SDL_UIKitVisionOSScene (%s): Activation failed: %s (code: %ld)",
+                    SDL_GetSceneModeName(self.mode),
+                    [[error localizedDescription] UTF8String],
+                    (long)error.code);
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (strongSelf) {
+            strongSelf.isPresented = NO;
+        }
+    };
+
+    NSMethodSignature *signature = [delegateClass methodSignatureForSelector:activateSelector];
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    [invocation setSelector:activateSelector];
+    [invocation setTarget:delegateClass];
+    [invocation setArgument:&errorBlock atIndex:2];
+    [invocation invoke];
+
+    SDL_Log("SDL_UIKitVisionOSScene (%s): Activation call completed", modeName);
+}
+
+- (void)dismiss
+{
+    const char *modeName = SDL_GetSceneModeName(_mode);
+
+    if (!_isPresented) {
+        SDL_Log("SDL_UIKitVisionOSScene (%s): Not presented, trying static dismiss as fallback", modeName);
+    }
+
+    SDL_Log("SDL_UIKitVisionOSScene (%s): Dismissing", modeName);
+
+    // Use the static dismiss method which tracks the session
+    // across SwiftUI-created delegate instances
+    Class delegateClass = SDL_GetHostingDelegateClass(_mode);
+    if (delegateClass) {
+        NSString *unused1 = nil;
+        NSString *unused2 = nil;
+        NSString *dismissSelectorName = nil;
+        SDL_GetSceneConfig(_mode, &unused1, &unused2, &dismissSelectorName);
+
+        SEL dismissSelector = NSSelectorFromString(dismissSelectorName);
+        if ([delegateClass respondsToSelector:dismissSelector]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            [delegateClass performSelector:dismissSelector];
+#pragma clang diagnostic pop
+            SDL_Log("SDL_UIKitVisionOSScene (%s): Called static dismiss", modeName);
+        }
+    }
+
+    // Also try our local session reference as a fallback
+    if (_sceneSession) {
+        UISceneDestructionRequestOptions *options = [[UISceneDestructionRequestOptions alloc] init];
+        [[UIApplication sharedApplication] requestSceneSessionDestruction:_sceneSession
+                                                                  options:options
+                                                             errorHandler:^(NSError *error) {
+            if (error) {
+                SDL_LogError(SDL_LOG_CATEGORY_VIDEO,
+                           "SDL_UIKitVisionOSScene: Failed to dismiss scene: %s",
+                           [[error localizedDescription] UTF8String]);
+            } else {
+                SDL_Log("SDL_UIKitVisionOSScene: Scene destroyed via local session");
+            }
+        }];
+        _sceneSession = nil;
+    }
+
+    _isPresented = NO;
+}
+
+- (void)updateWithTexture:(id<MTLTexture>)texture
+{
+    if (!texture) {
+        return;
+    }
+
+    id sharedDelegate = SDL_GetSharedDelegate(_mode);
+    if (!sharedDelegate) {
+        return;
+    }
+
+    SEL updateSelector = NSSelectorFromString(@"updateTexture:");
+    if ([sharedDelegate respondsToSelector:updateSelector]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        [sharedDelegate performSelector:updateSelector withObject:texture];
+#pragma clang diagnostic pop
+    }
+}
+
+- (void)setCurvature:(CGFloat)curvature
+{
+    _curvature = curvature;
+
+    id sharedDelegate = SDL_GetSharedDelegate(_mode);
+    if (!sharedDelegate) {
+        return;
+    }
+
+    SEL updateSelector = NSSelectorFromString(@"updateCurvature:");
+    if ([sharedDelegate respondsToSelector:updateSelector]) {
+        NSMethodSignature *signature = [sharedDelegate methodSignatureForSelector:updateSelector];
+        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+        [invocation setSelector:updateSelector];
+        [invocation setTarget:sharedDelegate];
+
+        float curvatureFloat = (float)curvature;
+        [invocation setArgument:&curvatureFloat atIndex:2];
+        [invocation invoke];
+    }
+}
+
+- (void)setSceneSession:(UISceneSession *)session
+{
+    _sceneSession = session;
+    SDL_Log("SDL_UIKitVisionOSScene (%s): Session set: %p", SDL_GetSceneModeName(_mode), session);
+}
+
+@end
+
+#endif /* SDL_PLATFORM_VISIONOS */

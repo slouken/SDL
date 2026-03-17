@@ -35,6 +35,9 @@
 #endif
 #ifdef SDL_VIDEO_DRIVER_UIKIT
 #import <UIKit/UIKit.h>
+#ifdef SDL_PLATFORM_VISIONOS
+#import "../../video/uikit/SDL_uikitvolumetric.h"
+#endif
 #endif
 
 // Regenerate these with build-metal-shaders.sh
@@ -139,6 +142,9 @@ typedef struct METAL_ShaderPipelines
 @property(nonatomic, assign) METAL_ShaderPipelines *activepipelines;
 @property(nonatomic, assign) METAL_ShaderPipelines *allpipelines;
 @property(nonatomic, assign) int pipelinescount;
+#ifdef SDL_PLATFORM_VISIONOS
+@property(nonatomic, retain) id<MTLTexture> mtlvolumetrictexture;
+#endif
 @end
 
 @implementation SDL3METAL_RenderData
@@ -453,16 +459,41 @@ static bool METAL_ActivateRenderCommandEncoder(SDL_Renderer *renderer, MTLLoadAc
             SDL3METAL_TextureData *texdata = (__bridge SDL3METAL_TextureData *)renderer->target->internal;
             mtltexture = texdata.mtltexture;
         } else {
-            if (data.mtlbackbuffer == nil) {
-                /* The backbuffer's contents aren't guaranteed to persist after
-                 * presenting, so we can leave it undefined when loading it. */
-                data.mtlbackbuffer = [data.mtllayer nextDrawable];
-                if (load == MTLLoadActionLoad) {
-                    load = MTLLoadActionDontCare;
+#ifdef SDL_PLATFORM_VISIONOS
+            // Check if this is a volumetric window
+            if (renderer->window && SDL_UIKit_IsVolumetricWindow(renderer->window)) {
+                // Use persistent texture for volumetric rendering
+                if (data.mtlvolumetrictexture == nil) {
+                    SDL_Log("METAL_ActivateRenderCommandEncoder: Creating volumetric texture %lux%lu",
+                            (unsigned long)data.mtllayer.drawableSize.width,
+                            (unsigned long)data.mtllayer.drawableSize.height);
+                    // Create the volumetric texture on first use
+                    MTLTextureDescriptor *desc = [MTLTextureDescriptor
+                        texture2DDescriptorWithPixelFormat:data.mtllayer.pixelFormat
+                        width:(NSUInteger)data.mtllayer.drawableSize.width
+                        height:(NSUInteger)data.mtllayer.drawableSize.height
+                        mipmapped:NO];
+                    desc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+                    desc.storageMode = MTLStorageModePrivate;
+                    data.mtlvolumetrictexture = [data.mtldevice newTextureWithDescriptor:desc];
+                    SDL_Log("METAL_ActivateRenderCommandEncoder: Created volumetric texture: %p", data.mtlvolumetrictexture);
                 }
-            }
-            if (data.mtlbackbuffer != nil) {
-                mtltexture = data.mtlbackbuffer.texture;
+                mtltexture = data.mtlvolumetrictexture;
+            } else
+#endif
+            {
+                // Standard rendering path: use CAMetalLayer drawable
+                if (data.mtlbackbuffer == nil) {
+                    // The backbuffer's contents aren't guaranteed to persist after
+                    // presenting, so we can leave it undefined when loading it.
+                    data.mtlbackbuffer = [data.mtllayer nextDrawable];
+                    if (load == MTLLoadActionLoad) {
+                        load = MTLLoadActionDontCare;
+                    }
+                }
+                if (data.mtlbackbuffer != nil) {
+                    mtltexture = data.mtlbackbuffer.texture;
+                }
             }
         }
 
@@ -2016,6 +2047,30 @@ static bool METAL_RenderPresent(SDL_Renderer *renderer)
 
         [data.mtlcmdencoder endEncoding];
 
+#ifdef SDL_PLATFORM_VISIONOS
+        // For volumetric windows, update RealityView with the rendered texture
+        if (renderer->window && SDL_UIKit_IsVolumetricWindow(renderer->window)) {
+            if (ready && data.mtlvolumetrictexture != nil) {
+                // Commit the command buffer first to finish rendering
+                [data.mtlcmdbuffer commit];
+                [data.mtlcmdbuffer waitUntilCompleted];
+
+                // Update the volumetric scene with the new texture
+                SDL_UIKit_UpdateVolumetricTexture(renderer->window, data.mtlvolumetrictexture);
+
+                data.mtlcmdencoder = nil;
+                data.mtlcmdbuffer = nil;
+
+                return true;
+            }
+
+            data.mtlcmdencoder = nil;
+            data.mtlcmdbuffer = nil;
+            return false;
+        }
+#endif
+
+        // Standard rendering path: present drawable
         // If we don't have a drawable to present, don't try to present it.
         //  But we'll still try to commit the command buffer in case it was already enqueued.
         if (ready) {
