@@ -3425,16 +3425,6 @@ bool SDL_IsJoystickVIRTUAL(SDL_GUID guid)
     return (guid.data[14] == 'v') ? true : false;
 }
 
-bool SDL_IsJoystickDrumKit(Uint16 vendor_id, Uint16 product_id)
-{
-    return SDL_VIDPIDInList(vendor_id, product_id, &drum_devices);
-}
-
-bool SDL_IsJoystickGuitar(Uint16 vendor_id, Uint16 product_id)
-{
-    return SDL_VIDPIDInList(vendor_id, product_id, &guitar_devices);
-}
-
 bool SDL_IsJoystickWheel(Uint16 vendor_id, Uint16 product_id)
 {
     return SDL_VIDPIDInList(vendor_id, product_id, &wheel_devices);
@@ -3455,19 +3445,22 @@ static bool SDL_IsJoystickThrottle(Uint16 vendor_id, Uint16 product_id)
     return SDL_VIDPIDInList(vendor_id, product_id, &throttle_devices);
 }
 
+static bool SDL_IsJoystickGuitar(Uint16 vendor_id, Uint16 product_id)
+{
+    return SDL_VIDPIDInList(vendor_id, product_id, &guitar_devices);
+}
+
+static bool SDL_IsJoystickDrumKit(Uint16 vendor_id, Uint16 product_id)
+{
+    return SDL_VIDPIDInList(vendor_id, product_id, &drum_devices);
+}
+
 static SDL_JoystickType SDL_GetJoystickGUIDType(SDL_GUID guid)
 {
     Uint16 vendor;
     Uint16 product;
 
     SDL_GetJoystickGUIDInfo(guid, &vendor, &product, NULL, NULL);
-
-    if (SDL_IsJoystickDrumKit(vendor, product)) {
-        return SDL_JOYSTICK_TYPE_DRUM_KIT;
-    }
-    if (SDL_IsJoystickGuitar(vendor, product)) {
-        return SDL_JOYSTICK_TYPE_GUITAR;
-    }
 
     if (SDL_IsJoystickWheel(vendor, product)) {
         return SDL_JOYSTICK_TYPE_WHEEL;
@@ -3483,6 +3476,14 @@ static SDL_JoystickType SDL_GetJoystickGUIDType(SDL_GUID guid)
 
     if (SDL_IsJoystickThrottle(vendor, product)) {
         return SDL_JOYSTICK_TYPE_THROTTLE;
+    }
+
+    if (SDL_IsJoystickGuitar(vendor, product)) {
+        return SDL_JOYSTICK_TYPE_GUITAR;
+    }
+
+    if (SDL_IsJoystickDrumKit(vendor, product)) {
+        return SDL_JOYSTICK_TYPE_DRUM_KIT;
     }
 
     if (SDL_IsJoystickXInput(guid)) {
