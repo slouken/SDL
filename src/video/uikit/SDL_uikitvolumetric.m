@@ -30,11 +30,9 @@
 
 bool SDL_UIKit_IsVolumetricWindow(SDL_Window *window)
 {
-    if (!window) {
-        return false;
-    }
+    SDL_UIKitWindowData *data = (__bridge SDL_UIKitWindowData *)window->internal;
 
-    return (window->flags & (SDL_WINDOW_VISIONOS_VOLUMETRIC | SDL_WINDOW_VISIONOS_IMMERSIVE)) != 0;
+    return data && data.visionOSScene;
 }
 
 bool SDL_UIKit_SetWindowCurvature(SDL_Window *window, float curvature)

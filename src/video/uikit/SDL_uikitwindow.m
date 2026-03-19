@@ -241,15 +241,20 @@ bool UIKit_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_Properti
         // Set up visionOS scene rendering if requested
         SDL_VisionOSSceneMode sceneMode = SDL_VisionOSSceneModeVolumetric;
         BOOL createScene = NO;
+        const char *hint = SDL_GetHint(SDL_HINT_VISIONOS_WINDOW_MODE);
 
-        if (window->flags & SDL_WINDOW_VISIONOS_VOLUMETRIC) {
-            sceneMode = SDL_VisionOSSceneModeVolumetric;
-            createScene = YES;
-            SDL_Log("VISIONOS: Creating volumetric scene");
-        } else if (window->flags & SDL_WINDOW_VISIONOS_IMMERSIVE) {
-            sceneMode = SDL_VisionOSSceneModeImmersive;
-            createScene = YES;
-            SDL_Log("VISIONOS: Creating immersive scene");
+        if (hint && *hint) {
+            if (SDL_strcasecmp(hint, "volumetric") == 0) {
+                sceneMode = SDL_VisionOSSceneModeVolumetric;
+                createScene = YES;
+                SDL_Log("VISIONOS: Creating volumetric scene");
+            } else if (SDL_strcasecmp(hint, "immersive") == 0) {
+                sceneMode = SDL_VisionOSSceneModeImmersive;
+                createScene = YES;
+                SDL_Log("VISIONOS: Creating immersive scene");
+            } else if (SDL_strcasecmp(hint, "flat") != 0) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO, "Unknown value \"%s\" for SDL_HINT_VISIONOS_WINDOW_MODE, defaulting to flat", hint);
+            }
         }
 
         if (createScene) {
