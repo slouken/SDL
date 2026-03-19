@@ -317,7 +317,7 @@ struct SDL_VolumetricRootView: View {
                         HStack(spacing: 8) {
                             ForEach([Float(0), 0.1, 0.2], id: \.self) { value in
                                 Button("Curve \(String(format: "%.1f", value))") {
-                                    SDL_VolumetricHostingSceneDelegate.immersiveHelper.updateCurvature(value)
+                                    SDL_ImmersiveHostingSceneDelegate.shared.updateCurvature(value)
                                 }
                                 .padding()
                                 .glassBackgroundEffect()
