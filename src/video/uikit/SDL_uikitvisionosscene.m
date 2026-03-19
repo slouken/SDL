@@ -32,8 +32,10 @@ void SDL_VisionOS_SendWindowResized(CGSize size)
     SDL_Window **windows = SDL_GetWindows(NULL);
     if (windows) {
         for (int i = 0; windows[i]; ++i) {
-            if (SDL_UIKit_IsVolumetricWindow(windows[i])) {
-                SDL_SendWindowEvent(windows[i], SDL_EVENT_WINDOW_RESIZED, (int)size.width, (int)size.height);
+            SDL_Window *window = windows[i];
+            if (SDL_UIKit_IsVolumetricWindow(window)) {
+                SDL_UIKitWindowData *data = (__bridge SDL_UIKitWindowData *)window->internal;
+                data.uiwindow.frame = CGRectMake(0, 0, size.width, size.height);
                 break;
             }
         }
