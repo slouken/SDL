@@ -144,6 +144,7 @@ typedef struct METAL_ShaderPipelines
 @property(nonatomic, assign) int pipelinescount;
 #ifdef SDL_PLATFORM_VISIONOS
 @property(nonatomic, retain) id<MTLTexture> mtlvolumetrictexture;
+@property(nonatomic, assign) CGSize mtlvolumetrictexturesize;
 #endif
 @end
 
@@ -463,7 +464,10 @@ static bool METAL_ActivateRenderCommandEncoder(SDL_Renderer *renderer, MTLLoadAc
             // Check if this is a volumetric window
             if (renderer->window && SDL_UIKit_IsVolumetricWindow(renderer->window)) {
                 // Use persistent texture for volumetric rendering
-                if (data.mtlvolumetrictexture == nil) {
+                CGSize drawableSize = data.mtllayer.drawableSize;
+                if (data.mtlvolumetrictexture == nil ||
+                    drawableSize.width != data.mtlvolumetrictexturesize.width ||
+                    drawableSize.height != data.mtlvolumetrictexturesize.height) {
                     SDL_Log("METAL_ActivateRenderCommandEncoder: Creating volumetric texture %lux%lu",
                             (unsigned long)data.mtllayer.drawableSize.width,
                             (unsigned long)data.mtllayer.drawableSize.height);
@@ -476,6 +480,7 @@ static bool METAL_ActivateRenderCommandEncoder(SDL_Renderer *renderer, MTLLoadAc
                     desc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
                     desc.storageMode = MTLStorageModePrivate;
                     data.mtlvolumetrictexture = [data.mtldevice newTextureWithDescriptor:desc];
+                    data.mtlvolumetrictexturesize = drawableSize;
                     SDL_Log("METAL_ActivateRenderCommandEncoder: Created volumetric texture: %p", data.mtlvolumetrictexture);
                 }
                 mtltexture = data.mtlvolumetrictexture;
