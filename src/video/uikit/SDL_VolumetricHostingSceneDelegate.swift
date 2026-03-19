@@ -237,12 +237,12 @@ public class SDL_VolumetricHostingSceneDelegate: NSObject, UIWindowSceneDelegate
         Self.helper.createCurvedMesh(width: widthMeters, height: heightMeters, curvature: curvature)
     }
 
-    /// Update texture each frame — routed to the active helper
-    @objc public func updateTexture(_ texture: MTLTexture) {
+    /// Get the display texture for this frame
+    @objc public func getDisplayTexture(_ commandBuffer: MTLCommandBuffer, width: Int, height: Int, pixelFormat: MTLPixelFormat) -> MTLTexture? {
         if Self.immersiveActive {
-            SDL_ImmersiveHostingSceneDelegate.shared.updateTexture(texture)
+            return SDL_ImmersiveHostingSceneDelegate.shared.getDisplayTexture(commandBuffer, width: width, height: height, pixelFormat: pixelFormat)
         } else {
-            Self.helper.updateTexture(texture)
+            return Self.helper.getDisplayTexture(commandBuffer, width: width, height: height, pixelFormat: pixelFormat)
         }
     }
 

@@ -83,11 +83,12 @@ typedef NS_ENUM(NSInteger, SDL_VisionOSSceneMode) {
 - (void)dismiss;
 
 /**
- * Update the SDL rendering texture.
- *
- * @param texture The Metal texture containing SDL's rendered frame
+ * Get the texture being displayed
  */
-- (void)updateWithTexture:(id<MTLTexture>)texture;
+- (id<MTLTexture>)getDisplayTexture:(id<MTLCommandBuffer>)commandBuffer
+                              width:(int)width
+                             height:(int)height
+                        pixelFormat:(MTLPixelFormat)pixelFormat;
 
 /**
  * Update the size of the display.

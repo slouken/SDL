@@ -226,7 +226,7 @@ public class SDL_RealityKitHelper: NSObject {
             descriptor.height = height
             descriptor.depth = 1
             descriptor.mipmapLevelCount = 1
-            descriptor.textureUsage = [.shaderRead]
+            descriptor.textureUsage = [.shaderRead, .renderTarget]
 
             // Create the LowLevelTexture
             lowLevelTexture = try LowLevelTexture(descriptor: descriptor)
@@ -262,57 +262,26 @@ public class SDL_RealityKitHelper: NSObject {
         }
     }
 
-    /// Updates the entity's material with a Metal texture using LowLevelTexture
-    @objc public func updateTexture(_ metalTexture: MTLTexture) {
-        
+    @objc public func getDisplayTexture(_ commandBuffer: MTLCommandBuffer, width: Int, height: Int, pixelFormat: MTLPixelFormat) -> MTLTexture? {
         // This can happen where we are in the middle of a transition between QT -> SDL or Volumetric -> Immersive
         guard curvedEntity != nil else {
-            return
+            return nil
         }
 
         // Ensure LowLevelTexture exists with correct dimensions
         ensureLowLevelTexture(
-            width: metalTexture.width,
-            height: metalTexture.height,
-            pixelFormat: metalTexture.pixelFormat
+            width: width,
+            height: height,
+            pixelFormat: pixelFormat
         )
 
         guard let llt = lowLevelTexture else {
             NSLog("SDL_RealityKitHelper: ERROR - No LowLevelTexture available")
-            return
+            return nil
         }
 
-        let device = metalTexture.device
-
-        // Create command buffer for the blit operation
-        guard let commandQueue = device.makeCommandQueue(),
-              let commandBuffer = commandQueue.makeCommandBuffer(),
-              let blitEncoder = commandBuffer.makeBlitCommandEncoder() else {
-            NSLog("SDL_RealityKitHelper: ERROR - Failed to create command buffer")
-            return
-        }
-
-        // Get the writable texture from LowLevelTexture and blit to it
-        let destTexture = llt.replace(using: commandBuffer)
-
-        let origin = MTLOrigin(x: 0, y: 0, z: 0)
-        let size = MTLSize(width: metalTexture.width, height: metalTexture.height, depth: 1)
-
-        blitEncoder.copy(
-            from: metalTexture,
-            sourceSlice: 0,
-            sourceLevel: 0,
-            sourceOrigin: origin,
-            sourceSize: size,
-            to: destTexture,
-            destinationSlice: 0,
-            destinationLevel: 0,
-            destinationOrigin: origin
-        )
-        blitEncoder.endEncoding()
-
-        commandBuffer.commit()
-        // Don't wait - async for better performance
+        // Get the writable texture from LowLevelTexture
+        return llt.replace(using: commandBuffer)
     }
 
     /// Updates the curvature and recreates the mesh

@@ -50,6 +50,11 @@ extern bool SDL_UIKit_SetWindowCurvature(SDL_Window *window, float curvature);
 extern float SDL_UIKit_GetWindowCurvature(SDL_Window *window);
 
 /**
+ * Get the volumetric display texture.
+ */
+id<MTLTexture> SDL_UIKit_GetVolumetricDisplayTexture(SDL_Window *window, id<MTLCommandBuffer> commandBuffer, int width, int height, MTLPixelFormat pixelFormat);
+
+/**
  * Update the volumetric scene content texture with new rendering output.
  *
  * This should be called after SDL has finished rendering a frame.

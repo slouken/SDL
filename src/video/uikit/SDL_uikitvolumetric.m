@@ -69,18 +69,17 @@ float SDL_UIKit_GetWindowCurvature(SDL_Window *window)
     return (float)data.visionOSScene.curvature;
 }
 
-void SDL_UIKit_UpdateVolumetricTexture(SDL_Window *window, id<MTLTexture> texture)
+id<MTLTexture> SDL_UIKit_GetVolumetricDisplayTexture(SDL_Window *window, id<MTLCommandBuffer> commandBuffer, int width, int height, MTLPixelFormat pixelFormat)
 {
-    if (!texture) {
-        return;
-    }
-
     SDL_UIKitWindowData *data = (__bridge SDL_UIKitWindowData *)window->internal;
     if (!data || !data.visionOSScene) {
         return;
     }
 
-    [data.visionOSScene updateWithTexture:texture];
+    return [data.visionOSScene getDisplayTexture:commandBuffer
+                                           width:width
+                                          height:height
+                                     pixelFormat:pixelFormat];
 }
 
 id<MTLDevice> SDL_UIKit_GetVolumetricMetalDevice(SDL_Window *window)

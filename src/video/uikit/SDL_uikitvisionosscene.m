@@ -306,24 +306,36 @@ static id SDL_GetSharedDelegate(SDL_VisionOSSceneMode mode)
     _isPresented = NO;
 }
 
-- (void)updateWithTexture:(id<MTLTexture>)texture
+- (id<MTLTexture>)getDisplayTexture:(id<MTLCommandBuffer>)commandBuffer
+                              width:(int)width
+                             height:(int)height
+                        pixelFormat:(MTLPixelFormat)pixelFormat
 {
-    if (!texture) {
-        return;
-    }
-
     id sharedDelegate = SDL_GetSharedDelegate(_mode);
     if (!sharedDelegate) {
-        return;
+        return nil;
     }
 
-    SEL updateSelector = NSSelectorFromString(@"updateTexture:");
-    if ([sharedDelegate respondsToSelector:updateSelector]) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-        [sharedDelegate performSelector:updateSelector withObject:texture];
-#pragma clang diagnostic pop
+    SEL getDisplayTextureSelector = NSSelectorFromString(@"getDisplayTexture:width:height:pixelFormat:");
+    if ([sharedDelegate respondsToSelector:getDisplayTextureSelector]) {
+        NSMethodSignature *signature = [sharedDelegate methodSignatureForSelector:getDisplayTextureSelector];
+        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+        [invocation setSelector:getDisplayTextureSelector];
+        [invocation setTarget:sharedDelegate];
+
+        long arg_width = width;
+        long arg_height = height;
+        [invocation setArgument:&commandBuffer atIndex:2];
+        [invocation setArgument:&arg_width atIndex:3];
+        [invocation setArgument:&arg_height atIndex:4];
+        [invocation setArgument:&pixelFormat atIndex:5];
+        [invocation invoke];
+        __unsafe_unretained id temp = nil;
+        [invocation getReturnValue:&temp];
+        id<MTLTexture> texture = temp;
+        return texture;
     }
+    return nil;
 }
 
 - (void)setSize:(CGSize)size

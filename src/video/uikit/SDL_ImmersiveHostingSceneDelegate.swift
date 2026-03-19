@@ -142,9 +142,9 @@ public class SDL_ImmersiveHostingSceneDelegate: NSObject, UISceneDelegate, @Main
         Self.helper.createCurvedMesh(width: widthMeters, height: heightMeters, curvature: curvature)
     }
 
-    /// Update texture each frame
-    @objc public func updateTexture(_ texture: MTLTexture) {
-        Self.helper.updateTexture(texture)
+    /// Get the display texture for this frame
+    @objc public func getDisplayTexture(_ commandBuffer: MTLCommandBuffer, width: Int, height: Int, pixelFormat: MTLPixelFormat) -> MTLTexture? {
+        return Self.helper.getDisplayTexture(commandBuffer, width: width, height: height, pixelFormat: pixelFormat)
     }
 
     /// Update window size dynamically
