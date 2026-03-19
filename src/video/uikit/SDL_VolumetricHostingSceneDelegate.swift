@@ -22,6 +22,10 @@ import SwiftUI
 import RealityKit
 import Metal
 
+// Defined in SDL_uikitvisionosscene.m — posts SDL_EVENT_WINDOW_RESIZED when a scene is resized
+@_silgen_name("SDL_VisionOS_SendWindowResized")
+func SDL_VisionOS_SendWindowResized(size: CGSize)
+
 // Defined in SDL_uikitvisionosscene.m — posts SDL_EVENT_QUIT when a scene disconnects
 @_silgen_name("SDL_VisionOS_SendQuitOnSceneDisconnect")
 func SDL_VisionOS_SendQuitOnSceneDisconnect()
@@ -94,7 +98,8 @@ public class SDL_VolumetricHostingSceneDelegate: NSObject, UIWindowSceneDelegate
             SDL_VolumetricRootView(helper: helper)
         }
         .windowStyle(.volumetric)
-        .defaultSize(width: 1.5, height: 1.0, depth: 0.5, in: .meters)
+        .windowResizability(.contentSize)
+        .defaultSize(width: 16.0 / 9.0, height: 1.0, depth: 0.5, in: .meters)
     }
 
     // MARK: - UIWindowSceneDelegate Lifecycle
@@ -223,10 +228,13 @@ public class SDL_VolumetricHostingSceneDelegate: NSObject, UIWindowSceneDelegate
 
     // MARK: - Configuration (Called from Objective-C SDL)
 
-    /// Configure curvature and device before scene activation
-    @objc public func configure(curvature: Float, metalDevice: MTLDevice) {
-        NSLog("SDL_VolumetricHostingSceneDelegate: Configuring curvature %.2f", curvature)
-        Self.helper.createCurvedMesh(curvature: curvature)
+    /// Configure size and curvature before scene activation
+    @objc public func configure(size: CGSize, curvature: Float) {
+        NSLog("SDL_VolumetricHostingSceneDelegate: Configuring size %gx%g and curvature %.2f", size.width, size.height, curvature)
+        @Environment(\.physicalMetrics) var metrics: PhysicalMetricsConverter
+        let widthMeters = Float(metrics.convert(size.width, to: .meters))
+        let heightMeters = Float(metrics.convert(size.height, to: .meters))
+        Self.helper.createCurvedMesh(width: widthMeters, height: heightMeters, curvature: curvature)
     }
 
     /// Update texture each frame — routed to the active helper
@@ -236,6 +244,15 @@ public class SDL_VolumetricHostingSceneDelegate: NSObject, UIWindowSceneDelegate
         } else {
             Self.helper.updateTexture(texture)
         }
+    }
+
+    /// Update window size dynamically
+    @objc public func updateSize(_ size: CGSize) {
+        NSLog("SDL_VolumetricHostingSceneDelegate: Updating size to %gx%g", size.width, size.height)
+        @Environment(\.physicalMetrics) var metrics: PhysicalMetricsConverter
+        let widthMeters = Float(metrics.convert(size.width, to: .meters))
+        let heightMeters = Float(metrics.convert(size.height, to: .meters))
+        Self.helper.updateSize(width: widthMeters, height: heightMeters)
     }
 
     /// Update curvature dynamically
@@ -253,16 +270,14 @@ struct SDL_VolumetricRootView: View {
     let helper: SDL_RealityKitHelper
     var isImmersive: Bool = false
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
-    @Environment(\.physicalMetrics) private var metrics: PhysicalMetricsConverter
 
     var body: some View {
         GeometryReader3D { proxy in
             realityContent
                 .onChange(of: proxy.size) { _, newSize in
                     guard !isImmersive else { return }
-                    let widthMeters = Float(metrics.convert(newSize.width, to: .meters))
-                    let heightMeters = Float(metrics.convert(newSize.height, to: .meters))
-                    helper.updateSize(width: widthMeters, height: heightMeters)
+                    NSLog("SDL_VolumetricRootView: size changed to %g,%g", newSize.width, newSize.height);
+                    SDL_VisionOS_SendWindowResized(size: CGSize(width: newSize.width, height: newSize.height));
                 }
         }
     }

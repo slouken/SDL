@@ -23,7 +23,23 @@
 #ifdef SDL_PLATFORM_VISIONOS
 
 #import "SDL_uikitvisionosscene.h"
+#include "SDL_uikitvolumetric.h"
 #include "../../events/SDL_events_c.h"
+
+// Called from Swift scene delegates when visionOS resizes a scene
+void SDL_VisionOS_SendWindowResized(CGSize size)
+{
+    SDL_Window **windows = SDL_GetWindows(NULL);
+    if (windows) {
+        for (int i = 0; windows[i]; ++i) {
+            if (SDL_UIKit_IsVolumetricWindow(windows[i])) {
+                SDL_SendWindowEvent(windows[i], SDL_EVENT_WINDOW_RESIZED, (int)size.width, (int)size.height);
+                break;
+            }
+        }
+        SDL_free(windows);
+    }
+}
 
 // Called from Swift scene delegates when visionOS disconnects a scene
 // (e.g. user closes the volumetric/immersive window via system close button).
@@ -82,17 +98,6 @@ static Class SDL_GetHostingDelegateClass(SDL_VisionOSSceneMode mode)
     Class delegateClass = NSClassFromString(className);
     if (delegateClass) {
         return delegateClass;
-    }
-
-    // Fallback: try with module prefixes for different build configurations
-    NSArray<NSString *> *moduleNames = @[@"SDL3", @"SDL", @"SDL_iOS_Sample"];
-    for (NSString *moduleName in moduleNames) {
-        NSString *prefixedName = [NSString stringWithFormat:@"%@.%@", moduleName, className];
-        delegateClass = NSClassFromString(prefixedName);
-        if (delegateClass) {
-            SDL_Log("SDL_UIKitVisionOSScene: Found delegate class: %s", [prefixedName UTF8String]);
-            return delegateClass;
-        }
     }
 
     SDL_LogError(SDL_LOG_CATEGORY_VIDEO,
@@ -172,19 +177,19 @@ static id SDL_GetSharedDelegate(SDL_VisionOSSceneMode mode)
     }
 
     // Configure the delegate with curvature and Metal device
-    SEL configureSelector = NSSelectorFromString(@"configureWithCurvature:metalDevice:");
+    SEL configureSelector = NSSelectorFromString(@"configureWithSize:curvature:");
     if ([sharedDelegate respondsToSelector:configureSelector]) {
         NSMethodSignature *signature = [sharedDelegate methodSignatureForSelector:configureSelector];
         NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
         [invocation setSelector:configureSelector];
         [invocation setTarget:sharedDelegate];
 
+        [invocation setArgument:&_contentSize atIndex:2];
         float curvatureFloat = (float)_curvature;
-        [invocation setArgument:&curvatureFloat atIndex:2];
-        [invocation setArgument:&_metalDevice atIndex:3];
+        [invocation setArgument:&curvatureFloat atIndex:3];
         [invocation invoke];
 
-        SDL_Log("SDL_UIKitVisionOSScene (%s): Configured with curvature %.2f", modeName, curvatureFloat);
+        SDL_Log("SDL_UIKitVisionOSScene (%s): Configured with size %gx%g and curvature %.2f", modeName, _contentSize.width, _contentSize.height, curvatureFloat);
     } else {
         SDL_LogWarn(SDL_LOG_CATEGORY_VIDEO,
                    "SDL_UIKitVisionOSScene (%s): Delegate doesn't respond to configure", modeName);
@@ -319,6 +324,26 @@ static id SDL_GetSharedDelegate(SDL_VisionOSSceneMode mode)
         [sharedDelegate performSelector:updateSelector withObject:texture];
 #pragma clang diagnostic pop
     }
+}
+
+- (void)setSize:(CGSize)size
+{
+    id sharedDelegate = SDL_GetSharedDelegate(_mode);
+    if (!sharedDelegate) {
+        return;
+    }
+
+    SEL updateSelector = NSSelectorFromString(@"updateSize:");
+    if ([sharedDelegate respondsToSelector:updateSelector]) {
+        NSMethodSignature *signature = [sharedDelegate methodSignatureForSelector:updateSelector];
+        NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+        [invocation setSelector:updateSelector];
+        [invocation setTarget:sharedDelegate];
+
+        [invocation setArgument:&size atIndex:2];
+        [invocation invoke];
+    }
+    _contentSize = size;
 }
 
 - (void)setCurvature:(CGFloat)curvature

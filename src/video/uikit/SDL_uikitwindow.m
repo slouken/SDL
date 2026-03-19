@@ -314,12 +314,16 @@ void UIKit_SetWindowSize(SDL_VideoDevice *_this, SDL_Window *window)
 #ifdef SDL_PLATFORM_VISIONOS
     @autoreleasepool {
         SDL_UIKitWindowData *data = (__bridge SDL_UIKitWindowData *)window->internal;
-        UIWindowScene *scene = data.uiwindow.windowScene;
         CGSize size = { window->pending.w, window->pending.h };
-        UIWindowSceneGeometryPreferences *preferences = [[UIWindowSceneGeometryPreferencesVision alloc] initWithSize:size];
-        [scene requestGeometryUpdateWithPreferences:preferences errorHandler:^(NSError * _Nonnull error) {
-            // Request failed, no worries
-        }];
+        if (SDL_UIKit_IsVolumetricWindow(window)) {
+            [data.visionOSScene setSize:size];
+        } else {
+            UIWindowScene *scene = data.uiwindow.windowScene;
+            UIWindowSceneGeometryPreferences *preferences = [[UIWindowSceneGeometryPreferencesVision alloc] initWithSize:size];
+            [scene requestGeometryUpdateWithPreferences:preferences errorHandler:^(NSError * _Nonnull error) {
+                // Request failed, no worries
+            }];
+        }
     }
 #endif
 }

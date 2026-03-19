@@ -90,6 +90,13 @@ typedef NS_ENUM(NSInteger, SDL_VisionOSSceneMode) {
 - (void)updateWithTexture:(id<MTLTexture>)texture;
 
 /**
+ * Update the size of the display.
+ *
+ * @param size New size
+ */
+- (void)setSize:(CGSize)size;
+
+/**
  * Update the curvature of the display.
  *
  * @param curvature New curvature factor (0.0-1.0)

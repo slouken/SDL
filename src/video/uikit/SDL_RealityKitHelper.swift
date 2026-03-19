@@ -46,7 +46,7 @@ public class SDL_RealityKitHelper: NSObject {
 
     private var curvedEntity: ModelEntity?
     private(set) var curvature: Float = 0.0
-    private(set) var meshWidth: Float = 1.5
+    private(set) var meshWidth: Float = 16.0 / 9.0
     private(set) var meshHeight: Float = 1.0
 
     // LowLevelTexture pipeline for efficient Metal → RealityKit texture transfer

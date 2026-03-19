@@ -134,14 +134,26 @@ public class SDL_ImmersiveHostingSceneDelegate: NSObject, UISceneDelegate, @Main
     // MARK: - Configuration (Called from Objective-C SDL)
 
     /// Configure curvature and device before scene activation
-    @objc public func configure(curvature: Float, metalDevice: MTLDevice) {
-        NSLog("SDL_ImmersiveHostingSceneDelegate: Configuring curvature %.2f", curvature)
-        Self.helper.createCurvedMesh(curvature: curvature)
+    @objc public func configure(size: CGSize, curvature: Float) {
+        NSLog("SDL_ImmersiveHostingSceneDelegate: Configuring size %gx%g and curvature %.2f", size.width, size.height, curvature)
+        @Environment(\.physicalMetrics) var metrics: PhysicalMetricsConverter
+        let widthMeters = Float(metrics.convert(size.width, to: .meters))
+        let heightMeters = Float(metrics.convert(size.height, to: .meters))
+        Self.helper.createCurvedMesh(width: widthMeters, height: heightMeters, curvature: curvature)
     }
 
     /// Update texture each frame
     @objc public func updateTexture(_ texture: MTLTexture) {
         Self.helper.updateTexture(texture)
+    }
+
+    /// Update window size dynamically
+    @objc public func updateSize(_ size: CGSize) {
+        NSLog("SDL_ImmersiveHostingSceneDelegate: Updating size to %gx%g", size.width, size.height)
+        @Environment(\.physicalMetrics) var metrics: PhysicalMetricsConverter
+        let widthMeters = Float(metrics.convert(size.width, to: .meters))
+        let heightMeters = Float(metrics.convert(size.height, to: .meters))
+        Self.helper.updateSize(width: widthMeters, height: heightMeters)
     }
 
     /// Update curvature dynamically
