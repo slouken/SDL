@@ -30,6 +30,136 @@ func SDL_VisionOS_SendWindowResized(size: CGSize)
 @_silgen_name("SDL_VisionOS_SendQuitOnSceneDisconnect")
 func SDL_VisionOS_SendQuitOnSceneDisconnect()
 
+// Icons used by buttons below
+
+// Close button
+/* SVG:
+ <svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+ <path d="M200 200L600 600" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M600 200L200 600" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ </svg>
+ */
+struct CloseButtonIcon: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.size.width
+        let height = rect.size.height
+        var strokePath1 = Path()
+        strokePath1.move(to: CGPoint(x: 0.25*width, y: 0.25*height))
+        strokePath1.addLine(to: CGPoint(x: 0.75*width, y: 0.75*height))
+        path.addPath(strokePath1.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        var strokePath2 = Path()
+        strokePath2.move(to: CGPoint(x: 0.75*width, y: 0.25*height))
+        strokePath2.addLine(to: CGPoint(x: 0.25*width, y: 0.75*height))
+        path.addPath(strokePath2.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        return path
+    }
+}
+
+// Flat button
+/* SVG:
+ <svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+ <path d="M133.333 400H666.667" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ </svg>
+ */
+struct FlatButtonIcon : Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.size.width
+        let height = rect.size.height
+        var strokePath = Path()
+        strokePath.move(to: CGPoint(x: 0.16667*width, y: 0.5*height))
+        strokePath.addLine(to: CGPoint(x: 0.83333*width, y: 0.5*height))
+        path.addPath(strokePath.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        return path
+    }
+}
+
+// Curved button
+/* SVG:
+ <svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+ <path d="M133.333 400C311.111 311.111 488.889 311.111 666.667 400" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ </svg>
+ */
+struct CurvedButtonIcon : Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.size.width
+        let height = rect.size.height
+        var strokePath = Path()
+        strokePath.move(to: CGPoint(x: 0.16667*width, y: 0.5*height))
+        strokePath.addCurve(to: CGPoint(x: 0.83333*width, y: 0.5*height), control1: CGPoint(x: 0.38889*width, y: 0.38889*height), control2: CGPoint(x: 0.61111*width, y: 0.38889*height))
+        path.addPath(strokePath.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        return path
+    }
+}
+
+// Minimize button
+/* SVG:
+ <svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+ <path d="M175 625L343.75 456.25M625 175L456.25 343.75" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M211 456H344.333V589.333" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M589.333 344.333H456V211" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ </svg>
+ */
+struct VolumetricButtonIcon : Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.size.width
+        let height = rect.size.height
+        var strokePath2 = Path()
+        strokePath2.move(to: CGPoint(x: 0.21875*width, y: 0.78125*height))
+        strokePath2.addLine(to: CGPoint(x: 0.42969*width, y: 0.57031*height))
+        strokePath2.move(to: CGPoint(x: 0.78125*width, y: 0.21875*height))
+        strokePath2.addLine(to: CGPoint(x: 0.57031*width, y: 0.42969*height))
+        path.addPath(strokePath2.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        var strokePath4 = Path()
+        strokePath4.move(to: CGPoint(x: 0.26375*width, y: 0.57*height))
+        strokePath4.addLine(to: CGPoint(x: 0.43042*width, y: 0.57*height))
+        strokePath4.addLine(to: CGPoint(x: 0.43042*width, y: 0.73667*height))
+        path.addPath(strokePath4.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        var strokePath6 = Path()
+        strokePath6.move(to: CGPoint(x: 0.73667*width, y: 0.43042*height))
+        strokePath6.addLine(to: CGPoint(x: 0.57*width, y: 0.43042*height))
+        strokePath6.addLine(to: CGPoint(x: 0.57*width, y: 0.26375*height))
+        path.addPath(strokePath6.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        return path
+    }
+}
+
+// Maximize button
+/* SVG:
+ <svg width="800" height="800" viewBox="0 0 800 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+ <path d="M175 625L343.75 456.25M625 175L456.25 343.75" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M492 175H625.333V308.333" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ <path d="M308.333 625.333H175V492" stroke="black" stroke-width="66.6667" stroke-linecap="round" stroke-linejoin="round"/>
+ </svg>
+ */
+struct ImmersiveButtonIcon : Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.size.width
+        let height = rect.size.height
+        var strokePath2 = Path()
+        strokePath2.move(to: CGPoint(x: 0.21875*width, y: 0.78125*height))
+        strokePath2.addLine(to: CGPoint(x: 0.42969*width, y: 0.57031*height))
+        strokePath2.move(to: CGPoint(x: 0.78125*width, y: 0.21875*height))
+        strokePath2.addLine(to: CGPoint(x: 0.57031*width, y: 0.42969*height))
+        path.addPath(strokePath2.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        var strokePath4 = Path()
+        strokePath4.move(to: CGPoint(x: 0.615*width, y: 0.21875*height))
+        strokePath4.addLine(to: CGPoint(x: 0.78167*width, y: 0.21875*height))
+        strokePath4.addLine(to: CGPoint(x: 0.78167*width, y: 0.38542*height))
+        path.addPath(strokePath4.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        var strokePath6 = Path()
+        strokePath6.move(to: CGPoint(x: 0.38542*width, y: 0.78167*height))
+        strokePath6.addLine(to: CGPoint(x: 0.21875*width, y: 0.78167*height))
+        strokePath6.addLine(to: CGPoint(x: 0.21875*width, y: 0.615*height))
+        path.addPath(strokePath6.strokedPath(StrokeStyle(lineWidth: 0.08333*width, lineCap: .round, lineJoin: .round, miterLimit: 4)))
+        return path
+    }
+}
+
 /// SwiftUI scene delegate for volumetric windows using UIHostingSceneDelegate bridging.
 ///
 /// Conforms to UIHostingSceneDelegate to declare a SwiftUI Scene that SwiftUI's
@@ -99,7 +229,7 @@ public class SDL_VolumetricHostingSceneDelegate: NSObject, UIWindowSceneDelegate
         }
         .windowStyle(.volumetric)
         .windowResizability(.contentSize)
-        .defaultSize(width: 16.0 / 9.0, height: 1.0, depth: 0.5, in: .meters)
+        .defaultSize(width: 16.0 / 9.0, height: 1.0, depth: 0.25, in: .meters)
     }
 
     // MARK: - UIWindowSceneDelegate Lifecycle
@@ -264,6 +394,7 @@ struct SDL_VolumetricRootView: View {
     let helper: SDL_RealityKitHelper
     var isImmersive: Bool = false
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
+    @Environment(\.physicalMetrics) private var metrics: PhysicalMetricsConverter
 
     var body: some View {
         GeometryReader3D { proxy in
@@ -291,9 +422,10 @@ struct SDL_VolumetricRootView: View {
 
             if let attachmentEntity = attachments.entity(for: "sceneButton") {
                 if isImmersive {
-                    attachmentEntity.position = SIMD3<Float>(0.0, 1.0, -1.0)
+                    attachmentEntity.position = SIMD3<Float>(0.0, 1.0, -1.4)
                 } else {
-                    attachmentEntity.position = SIMD3<Float>(0, -0.4, 0.25)
+                    let buttonHeight = Float(metrics.convert(80.0, to: .meters))
+                    attachmentEntity.position = SIMD3<Float>(0, -(helper.meshHeight * 0.5) + buttonHeight * 0.5, 0.24 * 0.5)
                 }
                 content.add(attachmentEntity)
                 NSLog("SDL_VolumetricRootView: Added button attachment (immersive=%d)", isImmersive ? 1 : 0)
@@ -314,9 +446,50 @@ struct SDL_VolumetricRootView: View {
             }
         } attachments: {
             Attachment(id: "sceneButton") {
-                if isImmersive {
-                    VStack(spacing: 12) {
-                        Button("Close Immersive View") {
+                HStack(spacing: 12) {
+                    if isImmersive {
+                        Button(action: {
+                            SDL_VisionOS_SendQuitOnSceneDisconnect()
+                        }) {
+                            Label {
+                                Text("Close")
+                            } icon: {
+                                CloseButtonIcon()
+                            }
+                        }
+                        .frame(width: 80, height: 80)
+                        .glassBackgroundEffect()
+                        .labelStyle(.iconOnly)
+                    }
+                    if helper.isCurved() {
+                        Button(action: {
+                            helper.updateCurvature(curvature: 0.0)
+                        }) {
+                            Label {
+                                Text("Flat")
+                            } icon: {
+                                FlatButtonIcon()
+                            }
+                        }
+                        .frame(width: 80, height: 80)
+                        .glassBackgroundEffect()
+                        .labelStyle(.iconOnly)
+                    } else {
+                        Button(action: {
+                            helper.updateCurvature(curvature: 0.2)
+                        }) {
+                            Label {
+                                Text("Curved")
+                            } icon: {
+                                CurvedButtonIcon()
+                            }
+                        }
+                        .frame(width: 80, height: 80)
+                        .glassBackgroundEffect()
+                        .labelStyle(.iconOnly)
+                    }
+                    if isImmersive {
+                        Button(action: {
                             Task {
                                 SDL_VolumetricHostingSceneDelegate.immersiveActive = false
                                 SDL_VolumetricHostingSceneDelegate.immersiveHelper.reset()
@@ -328,23 +501,18 @@ struct SDL_VolumetricRootView: View {
                                 }
                                 await dismissImmersiveSpace()
                             }
-                        }
-                        .padding()
-                        .glassBackgroundEffect()
-
-                        HStack(spacing: 8) {
-                            ForEach([Float(0), 0.1, 0.2], id: \.self) { value in
-                                Button("Curve \(String(format: "%.1f", value))") {
-                                    SDL_ImmersiveHostingSceneDelegate.shared.updateCurvature(value)
-                                }
-                                .padding()
-                                .glassBackgroundEffect()
+                        }) {
+                            Label {
+                                Text("Volumetric")
+                            } icon: {
+                                VolumetricButtonIcon()
                             }
                         }
-                    }
-                } else {
-                    VStack(spacing: 12) {
-                        Button("Go Immersive") {
+                        .frame(width: 80, height: 80)
+                        .glassBackgroundEffect()
+                        .labelStyle(.iconOnly)
+                    } else {
+                        Button(action: {
                             // Configure the immersive delegate's helper with current settings
                             SDL_ImmersiveHostingSceneDelegate.shared.configure(
                                 size: SDL_VolumetricHostingSceneDelegate.helper.contentSizeInPoints,
@@ -357,25 +525,16 @@ struct SDL_VolumetricRootView: View {
                                 NSLog("SDL_VolumetricHostingSceneDelegate: Failed to activate immersive: %@",
                                       error.localizedDescription)
                             }
-                        }
-                        .padding()
-                        .glassBackgroundEffect()
-
-                        HStack(spacing: 8) {
-                            ForEach([Float(0), 0.1, 0.2], id: \.self) { value in
-                                Button("Curve \(String(format: "%.1f", value))") {
-                                    SDL_VolumetricHostingSceneDelegate.helper.updateCurvature(curvature: value)
-                                }
-                                .padding()
-                                .glassBackgroundEffect()
+                        }) {
+                            Label {
+                                Text("Immersive")
+                            } icon: {
+                                ImmersiveButtonIcon()
                             }
                         }
-
-                        Button("Return to Qt") {
-                            SDL_VisionOS_SendQuitOnSceneDisconnect()
-                        }
-                        .padding()
+                        .frame(width: 80, height: 80)
                         .glassBackgroundEffect()
+                        .labelStyle(.iconOnly)
                     }
                 }
             }

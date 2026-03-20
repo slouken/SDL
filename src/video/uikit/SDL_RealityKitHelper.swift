@@ -329,4 +329,8 @@ public class SDL_RealityKitHelper: NSObject {
         createCurvedMesh(width: meshWidth, height: meshHeight, curvature: clampedCurvature)
         updateEntityMaterial()
     }
+
+    public func isCurved() -> Bool {
+        return meshCurvature > 0.0
+    }
 }
