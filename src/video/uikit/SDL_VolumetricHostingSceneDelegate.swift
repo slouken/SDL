@@ -278,8 +278,10 @@ struct SDL_VolumetricRootView: View {
                 }
         }
         .frame(
-            idealWidth: helper.contentSizeInPoints.width > 0 ? helper.contentSizeInPoints.width : nil,
-            idealHeight: helper.contentSizeInPoints.height > 0 ? helper.contentSizeInPoints.height : nil
+            //idealWidth: helper.contentSizeInPoints.width > 0 ? helper.contentSizeInPoints.width : nil,
+            //idealHeight: helper.contentSizeInPoints.height > 0 ? helper.contentSizeInPoints.height : nil
+            width: helper.contentSizeInPoints.width > 0 ? helper.contentSizeInPoints.width : nil,
+            height: helper.contentSizeInPoints.height > 0 ? helper.contentSizeInPoints.height : nil
         )
     }
 
