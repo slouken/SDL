@@ -273,6 +273,7 @@ struct SDL_VolumetricRootView: View {
                     NSLog("SDL_VolumetricRootView: size changed to %g,%g", newSize.width, newSize.height);
                     SDL_VolumetricHostingSceneDelegate.immersiveActive = false;
                     let size = CGSize(width: newSize.width, height: newSize.height);
+                    SDL_ImmersiveHostingSceneDelegate.shared.updateSize(size);
                     SDL_VisionOS_SendWindowResized(size: size);
                 }
         }
