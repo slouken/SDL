@@ -446,7 +446,7 @@ struct SDL_VolumetricRootView: View {
             }
         } attachments: {
             Attachment(id: "sceneButton") {
-                HStack(spacing: 12) {
+                HStack(spacing: 32) {
                     if isImmersive {
                         Button(action: {
                             SDL_VisionOS_SendQuitOnSceneDisconnect()
