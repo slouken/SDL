@@ -43,14 +43,6 @@ void SDL_VisionOS_SendWindowResized(CGSize size)
     }
 }
 
-// Called from Swift scene delegates when visionOS disconnects a scene
-// (e.g. user closes the volumetric/immersive window via system close button).
-void SDL_VisionOS_SendQuitOnSceneDisconnect(void)
-{
-    SDL_Log("SDL_VisionOS_SendQuitOnSceneDisconnect: Posting SDL_EVENT_QUIT");
-    SDL_SendQuit();
-}
-
 // Forward declare the Swift delegate class.
 @class SDL_VolumetricHostingSceneDelegate;
 

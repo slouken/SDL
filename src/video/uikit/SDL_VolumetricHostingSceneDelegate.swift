@@ -26,9 +26,9 @@ import Metal
 @_silgen_name("SDL_VisionOS_SendWindowResized")
 func SDL_VisionOS_SendWindowResized(size: CGSize)
 
-// Defined in SDL_uikitvisionosscene.m — posts SDL_EVENT_QUIT when a scene disconnects
-@_silgen_name("SDL_VisionOS_SendQuitOnSceneDisconnect")
-func SDL_VisionOS_SendQuitOnSceneDisconnect()
+// Defined in SDL_quit.c
+@_silgen_name("SDL_SendQuit")
+func SDL_SendQuit()
 
 // Icons used by buttons below
 
@@ -262,13 +262,12 @@ public class SDL_VolumetricHostingSceneDelegate: NSObject, UIWindowSceneDelegate
             NSLog("SDL_VolumetricHostingSceneDelegate: didEnterBackground (isTransitioning=%d)",
                   Self.isTransitioningScene ? 1 : 0)
             if !Self.isTransitioningScene {
-                NSLog("SDL_VolumetricHostingSceneDelegate: not transitioning, posting SDL_EVENT_QUIT")
+                NSLog("SDL_VolumetricHostingSceneDelegate: not transitioning")
                 Self.activeSession = nil
                 if let obs = Self.backgroundObserver {
                     NotificationCenter.default.removeObserver(obs)
                     Self.backgroundObserver = nil
                 }
-                SDL_VisionOS_SendQuitOnSceneDisconnect()
             }
         }
     }
@@ -289,7 +288,7 @@ public class SDL_VolumetricHostingSceneDelegate: NSObject, UIWindowSceneDelegate
             Self.isTransitioningScene = false
         } else {
             NSLog("SDL_VolumetricHostingSceneDelegate: posting SDL_EVENT_QUIT")
-            SDL_VisionOS_SendQuitOnSceneDisconnect()
+            SDL_SendQuit();
         }
     }
 
@@ -449,7 +448,7 @@ struct SDL_VolumetricRootView: View {
                 HStack(spacing: 32) {
                     if isImmersive {
                         Button(action: {
-                            SDL_VisionOS_SendQuitOnSceneDisconnect()
+                            SDL_SendQuit()
                         }) {
                             Label {
                                 Text("Close")

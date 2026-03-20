@@ -22,10 +22,6 @@ import SwiftUI
 import RealityKit
 import Metal
 
-// Defined in SDL_uikitvisionosscene.m — posts SDL_EVENT_QUIT when a scene disconnects
-@_silgen_name("SDL_VisionOS_SendQuitOnSceneDisconnect")
-func SDL_VisionOS_SendQuitOnSceneDisconnect_Immersive()
-
 /// SwiftUI scene delegate for immersive spaces using UIHostingSceneDelegate bridging.
 ///
 /// Parallel to SDL_VolumetricHostingSceneDelegate but declares an ImmersiveSpace
@@ -86,7 +82,6 @@ public class SDL_ImmersiveHostingSceneDelegate: NSObject, UISceneDelegate, @Main
         if Self.activeSession?.persistentIdentifier == scene.session.persistentIdentifier {
             Self.activeSession = nil
         }
-        SDL_VisionOS_SendQuitOnSceneDisconnect_Immersive()
     }
 
     // MARK: - ObjC-Callable Activation
