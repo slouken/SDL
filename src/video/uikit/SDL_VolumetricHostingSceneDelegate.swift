@@ -26,6 +26,10 @@ import Metal
 @_silgen_name("SDL_VisionOS_SendWindowResized")
 func SDL_VisionOS_SendWindowResized(size: CGSize)
 
+// Defined in SDL_uikitvisionosscene.m — sends touch events to the application
+@_silgen_name("SDL_VisionOS_SendVolumetricTouch")
+func SDL_VisionOS_SendVolumetricTouch(timestamp: Double, fingerID: UInt64, eventType: UInt32, location: CGPoint);
+
 // Defined in SDL_quit.c
 @_silgen_name("SDL_SendQuit")
 func SDL_SendQuit()
@@ -395,6 +399,39 @@ struct SDL_VolumetricRootView: View {
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @Environment(\.physicalMetrics) private var metrics: PhysicalMetricsConverter
 
+    let SDL_EVENT_FINGER_DOWN: UInt32 = 0x700
+    let SDL_EVENT_FINGER_UP: UInt32 = 0x701
+    let SDL_EVENT_FINGER_MOTION: UInt32 = 0x702
+    let SDL_EVENT_FINGER_CANCELED: UInt32 = 0x703
+    private(set) static var last_fingerID: UInt64 = 0
+    private(set) static var fingers: [SpatialEventCollection.Event.ID: UInt64] = [:]
+
+    private func sendTouchEvent(event: SpatialEventCollection.Event) {
+        var fingerID: UInt64
+        var eventType: UInt32
+        if let value = Self.fingers[event.id] {
+            fingerID = value
+            if (event.phase == SpatialEventCollection.Event.Phase.active) {
+                eventType = SDL_EVENT_FINGER_MOTION
+            } else if (event.phase == SpatialEventCollection.Event.Phase.ended) {
+                eventType = SDL_EVENT_FINGER_UP
+                Self.fingers.removeValue(forKey: event.id)
+            } else {
+                eventType = SDL_EVENT_FINGER_CANCELED
+                Self.fingers.removeValue(forKey: event.id)
+            }
+        } else if (event.phase == SpatialEventCollection.Event.Phase.active) {
+            Self.last_fingerID += 1
+            fingerID = Self.last_fingerID
+            Self.fingers[event.id] = fingerID
+            eventType = SDL_EVENT_FINGER_DOWN
+        } else {
+            // An inactive event for a finger we don't know about
+            return
+        }
+        SDL_VisionOS_SendVolumetricTouch(timestamp: event.timestamp, fingerID: fingerID, eventType: eventType, location: event.location)
+    }
+
     var body: some View {
         GeometryReader3D { proxy in
             realityContent
@@ -539,5 +576,18 @@ struct SDL_VolumetricRootView: View {
             }
         }
         .ignoresSafeArea()
+        .gesture(
+            SpatialEventGesture()
+                .onChanged { events in
+                    for event in events {
+                        sendTouchEvent(event: event)
+                    }
+                }
+                .onEnded { events in
+                    for event in events {
+                        sendTouchEvent(event: event)
+                    }
+                }
+        )
     }
 }

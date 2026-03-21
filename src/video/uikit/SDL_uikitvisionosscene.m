@@ -24,6 +24,7 @@
 
 #import "SDL_uikitvisionosscene.h"
 #include "SDL_uikitvolumetric.h"
+#include "SDL_uikitevents.h"
 #include "../../events/SDL_events_c.h"
 
 // Called from Swift scene delegates when visionOS resizes a scene
@@ -36,6 +37,35 @@ void SDL_VisionOS_SendWindowResized(CGSize size)
             if (SDL_UIKit_IsVolumetricWindow(window)) {
                 SDL_UIKitWindowData *data = (__bridge SDL_UIKitWindowData *)window->internal;
                 data.uiwindow.frame = CGRectMake(0, 0, size.width, size.height);
+                break;
+            }
+        }
+        SDL_free(windows);
+    }
+}
+
+// Called from Swift scene delegates when visionOS delivers a touch event
+void SDL_VisionOS_SendVolumetricTouch(NSTimeInterval timestamp, SDL_FingerID fingerID, Uint32 eventType, CGPoint location)
+{
+    const SDL_TouchID directTouchId = 1;
+    SDL_Window **windows = SDL_GetWindows(NULL);
+    if (windows) {
+        for (int i = 0; windows[i]; ++i) {
+            SDL_Window *window = windows[i];
+            if (SDL_UIKit_IsVolumetricWindow(window)) {
+                float pressure;
+                if (eventType == SDL_EVENT_FINGER_DOWN || eventType == SDL_EVENT_FINGER_MOTION) {
+                    pressure = 1.0f;
+                } else {
+                    pressure = 0.0f;
+                }
+                float x = location.x / window->w;
+                float y = location.y / window->h;
+                if (eventType == SDL_EVENT_FINGER_MOTION) {
+                    SDL_SendTouchMotion(UIKit_GetEventTimestamp(timestamp), directTouchId, fingerID, window, x, y, pressure);
+                } else {
+                    SDL_SendTouch(UIKit_GetEventTimestamp(timestamp), directTouchId, fingerID, window, (SDL_EventType)eventType, x, y, pressure);
+                }
                 break;
             }
         }
