@@ -2293,7 +2293,9 @@ static bool METAL_CreateRenderer(SDL_Renderer *renderer, SDL_Window *window, SDL
         id<MTLBuffer> mtlbufconstantstaging, mtlbufquadindicesstaging, mtlbufconstants, mtlbufquadindices;
         id<MTLCommandBuffer> cmdbuffer;
         id<MTLBlitCommandEncoder> blitcmd;
+        bool dynamic_range_supported = false;
         bool scRGB_supported = false;
+        bool HDR10_supported = false;
 
         // Note: matrices are column major.
         float identitytransform[16] = {
@@ -2340,11 +2342,24 @@ static bool METAL_CreateRenderer(SDL_Renderer *renderer, SDL_Window *window, SDL
 
 #ifndef SDL_PLATFORM_TVOS
         if (@available(macos 10.11, iOS 16.0, *)) {
-            scRGB_supported = true;
+            // wantsExtendedDynamicRangeContent is supported at this OS level
+            dynamic_range_supported = true;
         }
 #endif
+        if (@available(macos 10.12, iOS 10.0, tvOS 10.0, *)) {
+            // kCGColorSpaceExtendedLinearSRGB is supported at this OS level
+            scRGB_supported = true;
+        }
+        if (@available(macos 11.0, iOS 14.0, tvOS 14.0, *)) {
+            // kCGColorSpaceITUR_2100_PQ is supported at this OS level
+            HDR10_supported = true;
+        }
         if (renderer->output_colorspace != SDL_COLORSPACE_SRGB) {
-            if (renderer->output_colorspace == SDL_COLORSPACE_SRGB_LINEAR && scRGB_supported) {
+            if (renderer->output_colorspace == SDL_COLORSPACE_SRGB_LINEAR &&
+                scRGB_supported && dynamic_range_supported) {
+                // This colorspace is supported
+            } else if (renderer->output_colorspace == SDL_COLORSPACE_HDR10 &&
+                       HDR10_supported && dynamic_range_supported) {
                 // This colorspace is supported
             } else {
                 return SDL_SetError("Unsupported output colorspace");
@@ -2415,6 +2430,20 @@ static bool METAL_CreateRenderer(SDL_Renderer *renderer, SDL_Window *window, SDL
             layer.pixelFormat = MTLPixelFormatRGBA16Float;
 
             const CFStringRef name = kCGColorSpaceExtendedLinearSRGB;
+            CGColorSpaceRef colorspace = CGColorSpaceCreateWithName(name);
+            layer.colorspace = colorspace;
+            CGColorSpaceRelease(colorspace);
+        } else if (renderer->output_colorspace == SDL_COLORSPACE_SRGB_HDR10) {
+            // FIXME: EDR is defined as 100 nits
+            // Shader should normalize input values by SDR_white_level and multiply by 100
+            if (@available(macos 10.11, iOS 16.0, *)) {
+                layer.wantsExtendedDynamicRangeContent = YES;
+            } else {
+                SDL_assert(!"Logic error, scRGB is not actually supported");
+            }
+            layer.pixelFormat = MTLPixelFormatRGB10A2Unorm;
+
+            const CFStringRef name = kCGColorSpaceITUR_2100_PQ;
             CGColorSpaceRef colorspace = CGColorSpaceCreateWithName(name);
             layer.colorspace = colorspace;
             CGColorSpaceRelease(colorspace);
