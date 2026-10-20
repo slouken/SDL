@@ -29,16 +29,21 @@
 
 struct SDL_PrivateAudioData
 {
-    struct pw_thread_loop *loop;
     struct pw_stream *stream;
-    struct pw_context *context;
+    struct spa_hook stream_listener;
 
     char *node_name;
 
     Sint32 stride; // Bytes-per-frame
     int stream_init_status;
+    int max_buffer_size; // The smallest buffer size Pipewire has added
+    int process_requests; // The number of process callbacks the device thread hasn't handled yet
 
-    // Set in GetDeviceBuf, filled in AudioThreadIterate, queued in PlayDevice
+    // The playback audio is mixed here and copied to the Pipewire buffer in PlayDevice
+    Uint8 *mix_buffer;
+    int mix_buffer_size;
+
+    // Dequeued in WaitDevice/WaitRecordingDevice with the loop locked, queued in PlayDevice/RecordDevice
     struct pw_buffer *pw_buf;
 };
 
