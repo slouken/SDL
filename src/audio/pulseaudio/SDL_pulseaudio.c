@@ -551,6 +551,7 @@ static void PULSEAUDIO_FlushRecording(SDL_AudioDevice *device)
     struct SDL_PrivateAudioData *h = device->hidden;
     const void *data = NULL;
     size_t nbytes = 0, buflen = 0;
+    bool failed = false;
 
     PULSEAUDIO_pa_threaded_mainloop_lock(pulseaudio_threaded_mainloop);
 
@@ -565,7 +566,7 @@ static void PULSEAUDIO_FlushRecording(SDL_AudioDevice *device)
         PULSEAUDIO_pa_threaded_mainloop_wait(pulseaudio_threaded_mainloop);
         if ((PULSEAUDIO_pa_context_get_state(pulseaudio_context) != PA_CONTEXT_READY) || (PULSEAUDIO_pa_stream_get_state(h->stream) != PA_STREAM_READY)) {
             //SDL_Log("PULSEAUDIO DEVICE FAILURE IN FLUSHRECORDING!");
-            SDL_AudioDeviceDisconnected(device);
+            failed = true;
             break;
         }
 
@@ -577,6 +578,10 @@ static void PULSEAUDIO_FlushRecording(SDL_AudioDevice *device)
     }
 
     PULSEAUDIO_pa_threaded_mainloop_unlock(pulseaudio_threaded_mainloop);
+
+    if (failed) {
+        SDL_AudioDeviceDisconnected(device);  // don't hold the pulse lock during this, it locks the device.
+    }
 }
 
 static void PULSEAUDIO_CloseDevice(SDL_AudioDevice *device)
@@ -940,8 +945,9 @@ static void HotplugCallback(pa_context *c, pa_subscription_event_type_t t, uint3
         } else if (added && source) {
             PULSEAUDIO_pa_operation_unref(PULSEAUDIO_pa_context_get_source_info_by_index(pulseaudio_context, idx, SourceInfoCallback, NULL));
         } else if (removed && (sink || source)) {
-            // removes we can handle just with the device index.
-            SDL_AudioDeviceDisconnected(SDL_FindPhysicalAudioDeviceByCallback(FindAudioDeviceByIndex, (void *)(uintptr_t)idx));
+            /* removes we can handle just with the device index. We're holding the pulse lock, which a device thread
+               might be waiting on while holding the device lock, so don't lock the device here. */
+            SDL_AudioDeviceDisconnectedAsync(SDL_FindPhysicalAudioDeviceByCallback(FindAudioDeviceByIndex, (void *)(uintptr_t)idx));
         }
     }
     PULSEAUDIO_pa_threaded_mainloop_signal(pulseaudio_threaded_mainloop, 0);

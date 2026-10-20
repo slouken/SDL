@@ -146,7 +146,8 @@ static bool load_jack_syms(void)
 
 static void jackShutdownCallback(void *arg) // JACK went away; device is lost.
 {
-    SDL_AudioDeviceDisconnected((SDL_AudioDevice *)arg);
+    // This is called like an asynchronous signal handler, so don't lock the device here.
+    SDL_AudioDeviceDisconnectedAsync((SDL_AudioDevice *)arg);
 }
 
 static int jackSampleRateCallback(jack_nframes_t nframes, void *arg)

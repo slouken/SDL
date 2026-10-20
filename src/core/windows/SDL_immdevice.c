@@ -353,7 +353,8 @@ bool SDL_IMMDevice_Init(const SDL_IMMDevice_callbacks *callbacks)
     }
 
     if (!immcallbacks.audio_device_disconnected) {
-        immcallbacks.audio_device_disconnected = SDL_AudioDeviceDisconnected;
+        // These are called from the IMMNotificationClient callbacks, which must not block.
+        immcallbacks.audio_device_disconnected = SDL_AudioDeviceDisconnectedAsync;
     }
     if (!immcallbacks.default_audio_device_changed) {
         immcallbacks.default_audio_device_changed = SDL_DefaultAudioDeviceChanged;

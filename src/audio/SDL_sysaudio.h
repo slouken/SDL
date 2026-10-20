@@ -74,8 +74,15 @@ extern void SDL_SetupAudioResampler(void);
 extern SDL_AudioDevice *SDL_AddAudioDevice(bool recording, const char *name, const char *unique_id, const SDL_AudioSpec *spec, void *handle);
 
 /* Backends should call this if an opened audio device is lost.
-   This can happen due to i/o errors, or a device being unplugged, etc. */
+   This can happen due to i/o errors, or a device being unplugged, etc.
+   This locks the device, so don't call it while holding a backend lock that the device thread might wait on
+   while holding the device lock, or from a thread that might be waited on by something holding the device lock. */
 extern void SDL_AudioDeviceDisconnected(SDL_AudioDevice *device);
+
+/* Backends should call this instead of SDL_AudioDeviceDisconnected() if they can't safely lock the device, e.g. from
+   a system notification callback that must not block. The device is marked as lost immediately, and the rest of the
+   disconnect is handled on another thread. */
+extern void SDL_AudioDeviceDisconnectedAsync(SDL_AudioDevice *device);
 
 // Backends should call this if the system default device changes.
 extern void SDL_DefaultAudioDeviceChanged(SDL_AudioDevice *new_default_device);

@@ -109,7 +109,8 @@ static OSStatus DeviceAliveNotification(AudioObjectID devid, UInt32 num_addr, co
         #if DEBUG_COREAUDIO
         SDL_Log("COREAUDIO: device '%s' is lost!", device->name);
         #endif
-        SDL_AudioDeviceDisconnected(device);
+        // This is a system notification callback, don't block here waiting for the device lock.
+        SDL_AudioDeviceDisconnectedAsync(device);
     }
 
     return noErr;

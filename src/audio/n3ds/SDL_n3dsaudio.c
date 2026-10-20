@@ -48,9 +48,11 @@ static void N3DSAUD_DspHook(DSP_HookType hook)
     if (hook == DSPHOOK_ONCANCEL) {
         contextLock(audio_device);
         audio_device->hidden->isCancelled = true;
-        SDL_AudioDeviceDisconnected(audio_device);
         CondVar_Broadcast(&audio_device->hidden->cv);
         contextUnlock(audio_device);
+
+        // Don't hold the context lock during this, the device thread takes it while holding the device lock.
+        SDL_AudioDeviceDisconnected(audio_device);
     }
 }
 

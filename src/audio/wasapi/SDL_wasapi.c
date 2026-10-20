@@ -187,7 +187,10 @@ bool WASAPI_ProxyToManagementThread(ManagementThreadTask task, void *userdata, b
 
 static void AudioDeviceDisconnected(SDL_AudioDevice *device)
 {
-    WASAPI_DisconnectDevice(device);
+    // don't block in here; IMMDevice's own thread needs to return or everything will deadlock.
+    if (device && (!device->hidden || SDL_CompareAndSwapAtomicInt(&device->hidden->device_disconnecting, 0, 1))) {
+        SDL_AudioDeviceDisconnectedAsync(device);
+    }
 }
 
 static bool mgmtthrtask_DefaultAudioDeviceChanged(void *userdata)
@@ -360,11 +363,13 @@ static void WASAPI_DetectDevices(SDL_AudioDevice **default_playback, SDL_AudioDe
     WASAPI_ProxyToManagementThread(mgmtthrtask_DetectDevices, &data, &rc);
 }
 
+// This is called from the device thread, without holding the device lock.
 void WASAPI_DisconnectDevice(SDL_AudioDevice *device)
 {
-    // don't block in here; IMMDevice's own thread needs to return or everything will deadlock.
+    /* Don't proxy this to the management thread, things waiting on the management thread
+       might be holding the device lock. */
     if (device && (!device->hidden || SDL_CompareAndSwapAtomicInt(&device->hidden->device_disconnecting, 0, 1))) {
-        SDL_AudioDeviceDisconnected(device); // this proxies the work to the main thread now, so no point in proxying to the management thread.
+        SDL_AudioDeviceDisconnected(device);
     }
 }
 

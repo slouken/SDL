@@ -788,13 +788,16 @@ static void SetAudioDeviceZombieFunctions(SDL_AudioDevice *device)
     device->FlushRecording = ZombieFlushRecording;
 }
 
-// Called when a device is removed from the system, or it fails unexpectedly, from any thread, possibly even the audio device's thread.
-static void SDLCALL SDL_AudioDeviceDisconnected_OnMainThread(void *userdata)
+/* Called when a device is removed from the system, or it fails unexpectedly, from any thread, possibly even the audio device's thread.
+   This locks the device, so backends must not call it while holding a lock that the device thread might wait on while it holds
+   the device lock, or from a thread that might be waited on by something holding the device lock. Use SDL_AudioDeviceDisconnectedAsync()
+   if that's not possible. */
+void SDL_AudioDeviceDisconnected(SDL_AudioDevice *device)
 {
-    const SDL_AudioDeviceID devid = (SDL_AudioDeviceID) (size_t) userdata;
-    SDL_AudioDevice *device = ObtainPhysicalAudioDevice(devid);
-    if (device == NULL) {
-        return;  // apparently it went away already.
+    //SDL_Log("AUDIO DEVICE DISCONNECTED %p '%s'", device, device ? device->name : NULL);
+
+    if (!device) {
+        return;
     }
 
     // Save off removal info in a list so we can send events for each, next
@@ -805,11 +808,14 @@ static void SDLCALL SDL_AudioDeviceDisconnected_OnMainThread(void *userdata)
     pending.next = NULL;
     SDL_PendingAudioDeviceEvent *pending_tail = &pending;
 
+    ObtainPhysicalAudioDeviceObj(device);
+
     SDL_LockRWLockForReading(current_audio.subsystem_rwlock);
+    const SDL_AudioDeviceID devid = device->instance_id;
     const bool is_default_device = ((devid == current_audio.default_playback_device_id) || (devid == current_audio.default_recording_device_id));
     SDL_UnlockRWLock(current_audio.subsystem_rwlock);
 
-    // zombie==2 means "we've handled the disconnect events". 1=="we marked this as dead from a random thread but haven't done anything else"  0==we think we're still alive.
+    // zombie==2 means "we've handled the disconnect events". 1=="we marked this as dead but haven't done anything else"  0==we think we're still alive.
     const bool first_disconnect = SDL_CompareAndSwapAtomicInt(&device->zombie, 0, 2) || SDL_CompareAndSwapAtomicInt(&device->zombie, 1, 2);
     if (first_disconnect) {   // if already disconnected this device, don't do it twice.
         SetAudioDeviceZombieFunctions(device);  // in case we beat the device thread to this.
@@ -854,26 +860,122 @@ static void SDLCALL SDL_AudioDeviceDisconnected_OnMainThread(void *userdata)
 
         UnrefPhysicalAudioDevice(device);
     }
-
-    // We always ref this in SDL_AudioDeviceDisconnected(), so if multiple attempts
-    // to disconnect are queued, the pointer stays valid until the last one comes
-    // through.
-    UnrefPhysicalAudioDevice(device);
 }
 
-void SDL_AudioDeviceDisconnected(SDL_AudioDevice *device)
+/* Some backends get disconnect notifications on threads that must not block, so they hand them off to this thread,
+   which holds no locks, and isn't waited on by anything holding a device lock. */
+typedef struct SDL_PendingAudioDeviceDisconnect
 {
-    //SDL_Log("AUDIO DEVICE DISCONNECTED %p '%s'", device, device ? device->name : NULL);
+    SDL_AudioDevice *device;
+    struct SDL_PendingAudioDeviceDisconnect *next;
+} SDL_PendingAudioDeviceDisconnect;
 
-    // lots of risk of various audio backends deadlocking because they're calling
-    // this while holding a backend-specific lock, which causes problems when we
-    // want to obtain the device lock while its audio thread is also waiting for
-    // that lock to be released. So just queue the work on the main thread.
-    if (device) {
-        RefPhysicalAudioDevice(device);
-        SDL_CompareAndSwapAtomicInt(&device->zombie, 0, 1);  // note that we're (un)dead right now, if we haven't already, but leave the event notifications for the main thread.
-        SDL_RunOnMainThread(SDL_AudioDeviceDisconnected_OnMainThread, (void *) (size_t) device->instance_id, false);
+static SDL_Mutex *disconnect_lock;
+static SDL_Condition *disconnect_cond;
+static SDL_Thread *disconnect_thread;
+static SDL_PendingAudioDeviceDisconnect *pending_disconnects;
+static bool disconnect_thread_quit;
+
+static int SDLCALL AudioDisconnectThread(void *data)
+{
+    SDL_LockMutex(disconnect_lock);
+    while (true) {
+        SDL_PendingAudioDeviceDisconnect *pending = pending_disconnects;
+        if (pending) {
+            pending_disconnects = pending->next;
+            SDL_UnlockMutex(disconnect_lock);
+            SDL_AudioDeviceDisconnected(pending->device);
+            UnrefPhysicalAudioDevice(pending->device);
+            SDL_free(pending);
+            SDL_LockMutex(disconnect_lock);
+        } else if (disconnect_thread_quit) {
+            break;
+        } else {
+            SDL_WaitCondition(disconnect_cond, disconnect_lock);
+        }
     }
+    SDL_UnlockMutex(disconnect_lock);
+    return 0;
+}
+
+void SDL_AudioDeviceDisconnectedAsync(SDL_AudioDevice *device)
+{
+    if (!device) {
+        return;
+    }
+
+    // note that we're (un)dead right now, so the device thread stops using the backend, and lookups by handle skip this device.
+    SDL_CompareAndSwapAtomicInt(&device->zombie, 0, 1);
+
+    if (!disconnect_lock) {
+        return;  // out of memory at init time, the device will be a zombie but won't send any events.
+    }
+
+    SDL_PendingAudioDeviceDisconnect *pending = (SDL_PendingAudioDeviceDisconnect *) SDL_malloc(sizeof (*pending));
+    if (!pending) {
+        return;
+    }
+
+    SDL_LockMutex(disconnect_lock);
+    if (!disconnect_thread && !disconnect_thread_quit) {
+        disconnect_thread = SDL_CreateThread(AudioDisconnectThread, "SDLAudioDisconnect", NULL);
+    }
+    if (!disconnect_thread || disconnect_thread_quit) {
+        // We're shutting down (or out of resources), the device is marked lost, which is all we can do.
+        SDL_UnlockMutex(disconnect_lock);
+        SDL_free(pending);
+        return;
+    }
+
+    RefPhysicalAudioDevice(device);  // unref'd when the disconnect thread is done with it.
+    pending->device = device;
+    pending->next = NULL;
+
+    SDL_PendingAudioDeviceDisconnect **tail = &pending_disconnects;
+    while (*tail) {
+        tail = &(*tail)->next;
+    }
+    *tail = pending;
+    SDL_SignalCondition(disconnect_cond);
+    SDL_UnlockMutex(disconnect_lock);
+}
+
+static void InitAudioDisconnectThread(void)
+{
+    disconnect_lock = SDL_CreateMutex();
+    disconnect_cond = SDL_CreateCondition();
+    if (!disconnect_lock || !disconnect_cond) {
+        SDL_DestroyMutex(disconnect_lock);
+        SDL_DestroyCondition(disconnect_cond);
+        disconnect_lock = NULL;
+        disconnect_cond = NULL;
+    }
+    pending_disconnects = NULL;
+    disconnect_thread_quit = false;
+}
+
+// This processes any pending disconnects before returning, so call it before the devices are destroyed.
+static void QuitAudioDisconnectThread(void)
+{
+    if (!disconnect_lock) {
+        return;
+    }
+
+    SDL_LockMutex(disconnect_lock);
+    disconnect_thread_quit = true;
+    SDL_SignalCondition(disconnect_cond);
+    SDL_UnlockMutex(disconnect_lock);
+
+    if (disconnect_thread) {
+        SDL_WaitThread(disconnect_thread, NULL);
+        disconnect_thread = NULL;
+    }
+    SDL_assert(pending_disconnects == NULL);
+
+    SDL_DestroyCondition(disconnect_cond);
+    SDL_DestroyMutex(disconnect_lock);
+    disconnect_cond = NULL;
+    disconnect_lock = NULL;
 }
 
 
@@ -1107,6 +1209,8 @@ bool SDL_InitAudio(const char *driver_name)
 
     CompleteAudioEntryPoints();
 
+    InitAudioDisconnectThread();
+
     // Make sure we have a list of devices available at startup...
     SDL_AudioDevice *default_playback = NULL;
     SDL_AudioDevice *default_recording = NULL;
@@ -1151,6 +1255,9 @@ void SDL_QuitAudio(void)
     }
 
     current_audio.impl.DeinitializeStart();
+
+    // The backend has stopped hotplug detection, finish any disconnects that are still pending.
+    QuitAudioDisconnectThread();
 
     // Destroy any audio streams that still exist...unless app asked to keep it.
     SDL_AudioStream *next = NULL;

@@ -291,7 +291,7 @@ static bool io_list_check_add(struct io_node *node)
     spa_list_append(&hotplug_io_list, &node->link);
 
     if (hotplug_events_enabled) {
-        SDL_AddAudioDevice(node->recording, node->name, NULL, &node->spec, PW_ID_TO_HANDLE(node->id));
+        SDL_AddAudioDevice(node->recording, node->name, node->path, &node->spec, PW_ID_TO_HANDLE(node->id));
     }
 
     return true;
@@ -325,17 +325,6 @@ static void io_list_clear(void)
         spa_list_remove(&n->link);
         SDL_free(n);
     }
-}
-
-static struct io_node *io_list_get_by_id(Uint32 id)
-{
-    struct io_node *n, *temp;
-    spa_list_for_each_safe (n, temp, &hotplug_io_list, link) {
-        if (n->id == id) {
-            return n;
-        }
-    }
-    return NULL;
 }
 
 static void node_object_destroy(struct node_object *node)
@@ -876,7 +865,7 @@ static void PIPEWIRE_DetectDevices(SDL_AudioDevice **default_playback, SDL_Audio
     }
 
     spa_list_for_each (io, &hotplug_io_list, link) {
-        SDL_AudioDevice *device = SDL_AddAudioDevice(io->recording, io->name, NULL, &io->spec, PW_ID_TO_HANDLE(io->id));
+        SDL_AudioDevice *device = SDL_AddAudioDevice(io->recording, io->name, io->path, &io->spec, PW_ID_TO_HANDLE(io->id));
         if (pipewire_default_sink_id && SDL_strcmp(io->path, pipewire_default_sink_id) == 0) {
             if (!io->recording) {
                 *default_playback = device;
@@ -1274,13 +1263,10 @@ static bool PIPEWIRE_OpenDevice(SDL_AudioDevice *device)
     //  for now. We might revisit later.
     //PIPEWIRE_pw_properties_set(props, PW_KEY_NODE_DONT_RECONNECT, "true");  // Requesting a specific device, don't migrate to new default hardware.
 
-    if (node_id != PW_ID_ANY) {
-        PIPEWIRE_pw_thread_loop_lock(hotplug_loop);
-        const struct io_node *node = io_list_get_by_id(node_id);
-        if (node) {
-            PIPEWIRE_pw_properties_set(props, PW_KEY_TARGET_OBJECT, node->path);
-        }
-        PIPEWIRE_pw_thread_loop_unlock(hotplug_loop);
+    /* The device's unique ID is the node path. Don't look this up in the I/O list, that would lock the hotplug loop
+       while we're holding the device lock, and the hotplug loop locks devices when they're disconnected. */
+    if (node_id != PW_ID_ANY && device->unique_id) {
+        PIPEWIRE_pw_properties_set(props, PW_KEY_TARGET_OBJECT, device->unique_id);
     }
 
     // add this early so it will do its initial trigger when we aren't setup--skipping the attempt to update the name--since we're already explicitly setting it here.
