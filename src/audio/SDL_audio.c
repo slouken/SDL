@@ -1610,7 +1610,9 @@ SDL_AudioDevice *SDL_FindPhysicalAudioDeviceByCallback(bool (*callback)(void *us
 
 static bool TestDeviceHandleCallback(void *handle, SDL_AudioDevice *device)
 {
-    return device->handle == handle;
+    // Skip devices that have been disconnected, the backend may reuse their handles for new devices
+    // before the disconnect has been processed on the main thread.
+    return device->handle == handle && SDL_GetAtomicInt(&device->zombie) == 0;
 }
 
 SDL_AudioDevice *SDL_FindPhysicalAudioDeviceByHandle(void *handle)
