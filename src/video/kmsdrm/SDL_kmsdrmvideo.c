@@ -1531,10 +1531,14 @@ cleanup:
    These things are incompatible with Vulkan, which accesses the same resources
    internally so they must be free when trying to build a Vulkan surface.
 */
-static bool KMSDRM_GBMInit(SDL_VideoDevice *_this, SDL_DisplayData *dispdata)
+// Create the GBM device, which is needed to load EGL, if it doesn't already exist.
+bool KMSDRM_GBMInitDevice(SDL_VideoDevice *_this)
 {
     SDL_VideoData *viddata = _this->internal;
-    bool result = true;
+
+    if (viddata->gbm_dev) {
+        return true;
+    }
 
     // Reopen the FD if we weren't able to drop master on the original one
     if (viddata->drm_fd < 0) {
@@ -1552,7 +1556,45 @@ static bool KMSDRM_GBMInit(SDL_VideoDevice *_this, SDL_DisplayData *dispdata)
     // Create the GBM device.
     viddata->gbm_dev = KMSDRM_gbm_create_device(viddata->drm_fd);
     if (!viddata->gbm_dev) {
-        result = SDL_SetError("Couldn't create gbm device.");
+        if (!KMSDRM_DropMaster(_this)) {
+            close(viddata->drm_fd);
+            viddata->drm_fd = -1;
+        }
+        return SDL_SetError("Couldn't create gbm device.");
+    }
+    return true;
+}
+
+// Destroy the GBM device, after EGL has been unloaded and all windows using it are gone.
+void KMSDRM_GBMDeinitDevice(SDL_VideoDevice *_this)
+{
+    SDL_VideoData *viddata = _this->internal;
+
+    if (!viddata->gbm_dev) {
+        return;
+    }
+
+    /* Destroy GBM device. GBM surfaces are destroyed by DestroySurfaces(),
+       already called when we get here. */
+    KMSDRM_gbm_device_destroy(viddata->gbm_dev);
+    viddata->gbm_dev = NULL;
+
+    /* Finally drop DRM master if possible, otherwise close DRM FD.
+       May be reopened on next non-vulkan window creation. */
+    if (viddata->drm_fd >= 0 && !KMSDRM_DropMaster(_this)) {
+        close(viddata->drm_fd);
+        viddata->drm_fd = -1;
+    }
+}
+
+static bool KMSDRM_GBMInit(SDL_VideoDevice *_this, SDL_DisplayData *dispdata)
+{
+    SDL_VideoData *viddata = _this->internal;
+    bool result = true;
+
+    // The GBM device may already have been created when the GL library was loaded
+    if (!KMSDRM_GBMInitDevice(_this)) {
+        result = false;
     } else {
         // Setup the display plane. ONLY do this after dispdata has the right
         // crtc and connector, because these are used in this function.
@@ -1578,21 +1620,16 @@ static void KMSDRM_GBMDeinit(SDL_VideoDevice *_this, SDL_DisplayData *dispdata)
     // Free cursor plane (if still not freed)
     free_plane(&dispdata->cursor_plane);
 
-    /* Destroy GBM device. GBM surface is destroyed by DestroySurfaces(),
-       already called when we get here. */
-    if (viddata->gbm_dev) {
-        KMSDRM_gbm_device_destroy(viddata->gbm_dev);
-        viddata->gbm_dev = NULL;
-    }
-
-    /* Finally drop DRM master if possible, otherwise close DRM FD.
-       May be reopened on next non-vulkan window creation. */
-    if (viddata->drm_fd >= 0 && !KMSDRM_DropMaster(_this)) {
-        close(viddata->drm_fd);
-        viddata->drm_fd = -1;
-    }
-
     viddata->gbm_init = false;
+
+    /* The GBM device is destroyed when the GL library is unloaded, which may already
+       have happened, e.g. when the window is being recreated. */
+    if (!_this->gl_config.driver_loaded) {
+        if (_this->egl_data) {
+            SDL_EGL_UnloadLibrary(_this);
+        }
+        KMSDRM_GBMDeinitDevice(_this);
+    }
 }
 
 static void KMSDRM_DestroySurfaces(SDL_VideoDevice *_this, SDL_Window *window)
@@ -2068,14 +2105,7 @@ void KMSDRM_DestroyWindow(SDL_VideoDevice *_this, SDL_Window *window)
            because KMSDRM_CreateWindow() returned an error so the window wasn't
            added to the windows list. */
         if (viddata->num_windows <= 1) {
-
-            // Unload EGL/GL library and free egl_data.
-            if (_this->egl_data) {
-                SDL_EGL_UnloadLibrary(_this);
-                _this->gl_config.driver_loaded = 0;
-            }
-
-            // Free display plane, and destroy GBM device.
+            // Free display plane, and destroy GBM device if the GL library has been unloaded.
             KMSDRM_GBMDeinit(_this, dispdata);
         }
 
@@ -2123,7 +2153,6 @@ bool KMSDRM_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_Propert
     SDL_DisplayData *dispdata = display->internal;
     bool is_vulkan = window->flags & SDL_WINDOW_VULKAN; // Is this a VK window?
     bool vulkan_mode = viddata->vulkan_mode;            // Do we have any Vulkan windows?
-    NativeDisplayType egl_display;
     drmModeModeInfo *mode;
     bool result = true;
 
@@ -2145,9 +2174,7 @@ bool KMSDRM_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_Propert
 
     if (!is_vulkan && !vulkan_mode) { // NON-Vulkan block.
 
-        /* Maybe you didn't ask for an OPENGL window, but that's what you will get.
-           See following comments on why. */
-        window->flags |= SDL_WINDOW_OPENGL;
+        // Maybe you didn't ask for an OPENGL window, but that's what you will get.
 
         if (!(viddata->gbm_init)) {
 
@@ -2157,8 +2184,7 @@ bool KMSDRM_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_Propert
                succeed without an unnecessary window re-creation, we must:
                -Mark the window as being OPENGL
                -Load the GL library (which can't be done until the GBM device has been
-                created, so we have to do it here instead of doing it on VideoInit())
-                and mark it as loaded by setting gl_config.driver_loaded to 1.
+                created, so we can't do it on VideoInit(), see KMSDRM_GLES_LoadLibrary())
                So if you ever see KMSDRM_CreateWindow() to be called two times in tests,
                don't be shy to debug GL_CreateRenderer() or GLES2_CreateRenderer()
                to find out why!
@@ -2172,24 +2198,13 @@ bool KMSDRM_CreateWindow(SDL_VideoDevice *_this, SDL_Window *window, SDL_Propert
             }
         }
 
-        /* Manually load the GL library. KMSDRM_EGL_LoadLibrary() has already
-           been called by SDL_CreateWindow() but we don't do anything there,
-           our KMSDRM_EGL_LoadLibrary() is a dummy precisely to be able to load it here.
-           If we let SDL_CreateWindow() load the lib, it would be loaded
-           before we call KMSDRM_GBMInit(), causing all GLES programs to fail. */
-        if (!_this->egl_data) {
-            egl_display = (NativeDisplayType)_this->internal->gbm_dev;
-            if (!SDL_EGL_LoadLibrary(_this, NULL, egl_display)) {
-                // Try again with OpenGL ES 2.0
-                _this->gl_config.profile_mask = SDL_GL_CONTEXT_PROFILE_ES;
-                _this->gl_config.major_version = 2;
-                _this->gl_config.minor_version = 0;
-                if (!SDL_EGL_LoadLibrary(_this, NULL, egl_display)) {
-                    return SDL_SetError("Can't load EGL/GL library on window creation.");
-                }
+        /* SDL_CreateWindow() loads the GL library for OPENGL windows, otherwise load it here.
+           The reference is released by SDL_DestroyWindow(), since the window is now OPENGL. */
+        if (!(window->flags & SDL_WINDOW_OPENGL)) {
+            if (!SDL_GL_LoadLibrary(NULL)) {
+                return SDL_SetError("Can't load EGL/GL library on window creation.");
             }
-
-            _this->gl_config.driver_loaded = 1;
+            window->flags |= SDL_WINDOW_OPENGL;
         }
 
         /* Create the cursor BO for the display of this window,

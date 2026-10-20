@@ -202,6 +202,8 @@ typedef struct KMSDRM_PlaneInfo
 
 // Helper functions
 extern bool KMSDRM_CreateSurfaces(SDL_VideoDevice *_this, SDL_Window *window);
+extern bool KMSDRM_GBMInitDevice(SDL_VideoDevice *_this);
+extern void KMSDRM_GBMDeinitDevice(SDL_VideoDevice *_this);
 extern KMSDRM_FBInfo *KMSDRM_FBFromBO(SDL_VideoDevice *_this, struct gbm_bo *bo);
 extern KMSDRM_FBInfo *KMSDRM_FBFromBO2(SDL_VideoDevice *_this, struct gbm_bo *bo, int w, int h);
 extern bool KMSDRM_WaitPageflip(SDL_VideoDevice *_this, SDL_WindowData *windata);

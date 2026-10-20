@@ -65,22 +65,46 @@ void KMSDRM_GLES_SetDefaultProfileConfig(SDL_VideoDevice *_this)
 
 bool KMSDRM_GLES_LoadLibrary(SDL_VideoDevice *_this, const char *path)
 {
-    /* Just pretend you do this here, but don't do it until KMSDRM_CreateWindow(),
-       where we do the same library load we would normally do here.
-       because this gets called by SDL_CreateWindow() before KMSDR_CreateWindow(),
-       so gbm dev isn't yet created when this is called, AND we can't alter the
-       call order in SDL_CreateWindow(). */
-#if 0
-    NativeDisplayType display = (NativeDisplayType)_this->internal->gbm_dev;
-    return SDL_EGL_LoadLibrary(_this, path, display);
-#endif
+    SDL_VideoData *viddata = _this->internal;
+
+    if (viddata->vulkan_mode) {
+        // The GBM device can't be created while Vulkan windows are using the DRM device
+        return true;
+    }
+
+    // EGL needs the GBM device, which may not exist yet if there aren't any windows
+    if (!KMSDRM_GBMInitDevice(_this)) {
+        return false;
+    }
+
+    NativeDisplayType display = (NativeDisplayType)viddata->gbm_dev;
+    if (!SDL_EGL_LoadLibrary(_this, path, display)) {
+        // Try again with OpenGL ES 2.0
+        _this->gl_config.profile_mask = SDL_GL_CONTEXT_PROFILE_ES;
+        _this->gl_config.major_version = 2;
+        _this->gl_config.minor_version = 0;
+        if (!SDL_EGL_LoadLibrary(_this, path, display)) {
+            // SDL_GL_LoadLibrary() calls KMSDRM_GLES_UnloadLibrary() to clean up
+            return false;
+        }
+    }
     return true;
 }
 
 void KMSDRM_GLES_UnloadLibrary(SDL_VideoDevice *_this)
 {
-    /* As with KMSDRM_GLES_LoadLibrary(), we define our own "dummy" unloading function
-       so we manually unload the library whenever we want. */
+    SDL_VideoData *viddata = _this->internal;
+
+    /* If there are still windows using EGL, e.g. SDL_RecreateWindow() unloads the library
+       before destroying the window, KMSDRM_DestroyWindow() will unload it instead. */
+    if (viddata->gbm_init) {
+        return;
+    }
+
+    if (_this->egl_data) {
+        SDL_EGL_UnloadLibrary(_this);
+    }
+    KMSDRM_GBMDeinitDevice(_this);
 }
 
 SDL_EGL_CreateContext_impl(KMSDRM)
