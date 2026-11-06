@@ -28,6 +28,10 @@
 #include "../../SDL_hints_c.h"
 #if defined(SDL_PLATFORM_WIN32) || defined(SDL_PLATFORM_WINGDK)
 #include "../../core/windows/SDL_hid.h"
+#elif defined(SDL_PLATFORM_LINUX)
+#include "../../core/linux/SDL_sysfs.h"
+#elif defined(SDL_PLATFORM_MACOS)
+#include "../../core/macos/SDL_ioreg.h"
 #endif
 
 
@@ -1490,7 +1494,13 @@ static SDL_JoystickDevice *HIDAPI_JoystickQueryDevices(void)
 static bool HIDAPI_JoystickPrepareDevice(SDL_JoystickDevice *device)
 {
 #if defined(SDL_PLATFORM_WIN32) || defined(SDL_PLATFORM_WINGDK)
-    WIN_GetContainerIDFromInterfacePath(device->path, &device->container_id);
+    device->container_id = WIN_GetContainerIDFromInterfacePath(device->path);
+#elif defined(SDL_PLATFORM_LINUX)
+    device->container_id = SDL_GetContainerIDFromDevicePath(device->path);
+#elif defined(SDL_PLATFORM_MACOS)
+    if (device->path && SDL_strncmp(device->path, "DevSrvsID:", 10) == 0) {
+        device->container_id = SDL_GetContainerIDFromRegistryEntryID(SDL_strtoull(device->path + 10, NULL, 10));
+    }
 #endif
     return true;
 }

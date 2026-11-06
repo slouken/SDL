@@ -38,6 +38,9 @@
 
 #include "../SDL_sysaudio.h"
 #include "SDL_alsa_audio.h"
+#ifdef SDL_PLATFORM_LINUX
+#include "../../core/linux/SDL_sysfs.h"
+#endif
 #include "../../core/linux/SDL_udev.h"
 
 #if SDL_ALSA_DEBUG
@@ -107,6 +110,7 @@ static const char *(*ALSA_snd_ctl_card_info_get_id)(const snd_ctl_card_info_t *)
 static const char *(*ALSA_snd_pcm_info_get_name)(const snd_pcm_info_t *);
 static const char *(*ALSA_snd_pcm_info_get_subdevice_name)(const snd_pcm_info_t *);
 static const char *(*ALSA_snd_ctl_card_info_get_name)(const snd_ctl_card_info_t *);
+static int (*ALSA_snd_ctl_card_info_get_card)(const snd_ctl_card_info_t *);
 static void (*ALSA_snd_ctl_card_info_clear)(snd_ctl_card_info_t *);
 static int (*ALSA_snd_pcm_hw_free)(snd_pcm_t *);
 static int (*ALSA_snd_pcm_hw_params_set_channels_near)(snd_pcm_t *, snd_pcm_hw_params_t *, unsigned int *);
@@ -202,6 +206,7 @@ static bool load_alsa_syms(void)
     SDL_ALSA_SYM(snd_pcm_info_get_name);
     SDL_ALSA_SYM(snd_pcm_info_get_subdevice_name);
     SDL_ALSA_SYM(snd_ctl_card_info_get_name);
+    SDL_ALSA_SYM(snd_ctl_card_info_get_card);
     SDL_ALSA_SYM(snd_ctl_card_info_clear);
     SDL_ALSA_SYM(snd_pcm_hw_free);
     SDL_ALSA_SYM(snd_pcm_hw_params_set_channels_near);
@@ -1364,7 +1369,14 @@ static int hotplug_device_process(snd_ctl_t *ctl, snd_ctl_card_info_t *ctl_card_
             adev->device_index = dev_idx;
             adev->recording = (direction == SND_PCM_STREAM_CAPTURE);
 
-            if (SDL_AddAudioDevice(recording, adev->name, NULL, NULL, NULL, adev) == NULL) {
+            char *container_id = NULL;
+#ifdef SDL_PLATFORM_LINUX
+            container_id = SDL_GetContainerIDFromALSACard(ALSA_snd_ctl_card_info_get_card(ctl_card_info));
+#endif
+            SDL_AudioDevice *device = SDL_AddAudioDevice(recording, adev->name, container_id, NULL, NULL, adev);
+            SDL_free(container_id);
+
+            if (device == NULL) {
                 SDL_small_free(pcm_info, isstack);
                 SDL_free(adev->id);
                 SDL_free(adev->name);

@@ -30,6 +30,7 @@
 extern "C"
 {
 #include "../hidapi/SDL_hidapijoystick_c.h"
+#include "../../core/windows/SDL_hid.h"
 }
 
 enum
@@ -442,8 +443,6 @@ static SDL_JoystickDevice *CreateGameInputDevice(IGameInputDevice *pDevice)
         pDevice->GetPnpPath(sizeof(pnpPath), pnpPath);
         device->steam_virtual_gamepad_slot = GetSteamVirtualGamepadSlot(pnpPath);
 
-        pDevice->GetContainerId((GUID *)&device->container_id);
-
         uint32_t xinput_index;
         if (pDevice->GetXInputDeviceIndex(&xinput_index)) {
             int slot = (int)xinput_index;
@@ -494,6 +493,12 @@ static bool GAMEINPUT_JoystickPrepareDevice(SDL_JoystickDevice *device)
     if (!device->name) {
         return false;
     }
+
+#if GAMEINPUT_API_VERSION >= 4
+    GUID container_id;
+    data->device->GetContainerId(&container_id);
+    device->container_id = WIN_GetContainerIDString(&container_id);
+#endif
     return true;
 }
 

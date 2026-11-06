@@ -24,7 +24,6 @@
 
 #include "SDL_sysjoystick.h"
 #include "../SDL_hints_c.h"
-#include "../SDL_properties_c.h"
 #include "SDL_gamepad_c.h"
 #include "SDL_joystick_c.h"
 #include "SDL_steam_virtual_gamepad.h"
@@ -44,6 +43,11 @@
 
 #undef UNICODE // We want ASCII functions
 #include <tlhelp32.h>
+#endif
+
+#ifdef SDL_PLATFORM_MACOS
+#include <IOKit/IOKitLib.h>
+#include <IOKit/hid/IOHIDKeys.h>
 #endif
 
 #ifdef SDL_JOYSTICK_VIRTUAL
@@ -897,6 +901,7 @@ void SDL_DestroyJoystickDevice(SDL_JoystickDevice *device)
     SDL_free(device->matches);
     SDL_free(device->name);
     SDL_free(device->path);
+    SDL_free(device->container_id);
     SDL_free(device);
 }
 
@@ -2051,9 +2056,8 @@ SDL_Joystick *SDL_OpenJoystick(SDL_JoystickID instance_id)
         }
     }
 
-    if (!SDL_IsZeroGUID(&device->container_id) &&
-        !SDL_IsSystemContainerGUID(&device->container_id)) {
-        SDL_SetGUIDProperty(SDL_GetJoystickProperties(joystick), SDL_PROP_JOYSTICK_CONTAINER_ID_STRING, &device->container_id);
+    if (device->container_id) {
+        SDL_SetStringProperty(SDL_GetJoystickProperties(joystick), SDL_PROP_JOYSTICK_CONTAINER_ID_STRING, device->container_id);
     }
 
     driver->Update(joystick);

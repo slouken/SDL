@@ -29,6 +29,7 @@
 #include "../../haptic/darwin/SDL_syshaptic_c.h" // For haptic hot plugging
 #include "../usb_ids.h"
 #include "../../SDL_hints_c.h"
+#include "../../core/macos/SDL_ioreg.h"
 #include <IOKit/IOKitLib.h>
 
 #define SDL_JOYSTICK_RUNLOOP_MODE CFSTR("SDLJoystick")
@@ -917,8 +918,16 @@ static SDL_JoystickDevice *DARWIN_JoystickQueryDevices(void)
 
 static bool DARWIN_JoystickPrepareDevice(SDL_JoystickDevice *device)
 {
-#ifdef SDL_HAPTIC_IOKIT
     recDevice *data = (recDevice *)device->internal;
+
+    if (data->deviceRef) {
+        uint64_t entry_id = 0;
+        if (IORegistryEntryGetRegistryEntryID(IOHIDDeviceGetService(data->deviceRef), &entry_id) == kIOReturnSuccess) {
+            device->container_id = SDL_GetContainerIDFromRegistryEntryID(entry_id);
+        }
+    }
+
+#ifdef SDL_HAPTIC_IOKIT
     if (data->ffservice) {
         MacHaptic_MaybeAddDevice(data->ffservice);
     }

@@ -82,6 +82,29 @@ void WIN_UnloadHIDDLL(void)
     }
 }
 
+char *WIN_GetContainerIDString(const GUID *container_id)
+{
+    static const GUID NULL_CONTAINER_ID = { 0x00000000L, 0x0000, 0x0000, { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
+    static const GUID SYSTEM_CONTAINER_ID = { 0x00000000L, 0x0000, 0x0000, { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF } };
+    char *result = NULL;
+
+    // Devices that are part of the computer all share the system container ID,
+    // so it can't be used to find associated devices.
+    if (SDL_memcmp(container_id, &NULL_CONTAINER_ID, sizeof(*container_id)) == 0 ||
+        SDL_memcmp(container_id, &SYSTEM_CONTAINER_ID, sizeof(*container_id)) == 0) {
+        return NULL;
+    }
+
+    // Use the same format that Windows uses, e.g. {24555b7b-4ecc-11f1-bc07-4c233802a1fc}
+    if (SDL_asprintf(&result, "{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+                     (unsigned long)container_id->Data1, container_id->Data2, container_id->Data3,
+                     container_id->Data4[0], container_id->Data4[1], container_id->Data4[2], container_id->Data4[3],
+                     container_id->Data4[4], container_id->Data4[5], container_id->Data4[6], container_id->Data4[7]) < 0) {
+        return NULL;
+    }
+    return result;
+}
+
 #if !defined(SDL_PLATFORM_XBOXONE) && !defined(SDL_PLATFORM_XBOXSERIES)
 
 #include <devpropdef.h>
@@ -407,52 +430,49 @@ WCHAR *WIN_GetHIDDeviceInterfaces(ULONG *length)
     }
 }
 
-SDL_COMPILE_TIME_ASSERT(sizeof_GUID, sizeof(SDL_GUID) == sizeof(GUID));
-
-bool WIN_GetContainerIDFromInstanceID(const WCHAR *instance_id, SDL_GUID *container_id)
+char *WIN_GetContainerIDFromInstanceID(const WCHAR *instance_id)
 {
     DWORD devinst = 0;
     DEVPROPTYPE type = DEVPROP_TYPE_EMPTY;
-    ULONG size = sizeof(*container_id);
-
-    SDL_zerop(container_id);
+    GUID container_id;
+    ULONG size = sizeof(container_id);
 
     if (!WIN_LoadCfgMgr32() || !SDL_CM_Locate_DevNodeW || !SDL_CM_Get_DevNode_PropertyW) {
-        return false;
+        return NULL;
     }
 
     if (SDL_CM_Locate_DevNodeW(&devinst, (WCHAR *)instance_id, CM_LOCATE_DEVNODE_NORMAL) != CR_SUCCESS) {
-        return false;
+        return NULL;
     }
-    if (SDL_CM_Get_DevNode_PropertyW(devinst, &SDL_DEVPKEY_Device_ContainerId, &type, (PBYTE)container_id, &size, 0) != CR_SUCCESS ||
+    if (SDL_CM_Get_DevNode_PropertyW(devinst, &SDL_DEVPKEY_Device_ContainerId, &type, (PBYTE)&container_id, &size, 0) != CR_SUCCESS ||
         type != DEVPROP_TYPE_GUID) {
-        return false;
+        return NULL;
     }
-    return true;
+    return WIN_GetContainerIDString(&container_id);
 }
 
-bool WIN_GetContainerIDFromInterfacePath(const char *path, SDL_GUID *container_id)
+char *WIN_GetContainerIDFromInterfacePath(const char *path)
 {
     WCHAR instance_id[MAX_DEVICE_ID_LEN];
     ULONG size = sizeof(instance_id);
     DEVPROPTYPE type = DEVPROP_TYPE_EMPTY;
     DWORD result;
 
-    if (!WIN_LoadCfgMgr32() || !SDL_CM_Get_Device_Interface_PropertyW) {
-        return false;
+    if (!path || !WIN_LoadCfgMgr32() || !SDL_CM_Get_Device_Interface_PropertyW) {
+        return NULL;
     }
 
     WCHAR *wpath = WIN_UTF8ToStringW(path);
     if (!wpath) {
-        return false;
+        return NULL;
     }
     result = SDL_CM_Get_Device_Interface_PropertyW(wpath, &SDL_DEVPKEY_Device_InstanceId, &type, (PBYTE)instance_id, &size, 0);
     SDL_free(wpath);
 
     if (result != CR_SUCCESS || type != DEVPROP_TYPE_STRING) {
-        return false;
+        return NULL;
     }
-    return WIN_GetContainerIDFromInstanceID(instance_id, container_id);
+    return WIN_GetContainerIDFromInstanceID(instance_id);
 }
 
 #else
@@ -485,14 +505,14 @@ WCHAR *WIN_GetHIDDeviceInterfaces(ULONG *length)
     return NULL;
 }
 
-bool WIN_GetContainerIDFromInstanceID(const WCHAR *instance_id, SDL_GUID *container_id)
+char *WIN_GetContainerIDFromInstanceID(const WCHAR *instance_id)
 {
-    return false;
+    return NULL;
 }
 
-bool WIN_GetContainerIDFromInterfacePath(const char *path, SDL_GUID *container_id)
+char *WIN_GetContainerIDFromInterfacePath(const char *path)
 {
-    return false;
+    return NULL;
 }
 
 #endif // !SDL_PLATFORM_XBOXONE && !SDL_PLATFORM_XBOXSERIES

@@ -36,7 +36,6 @@ extern bool SDL_startswith(const char *string, const char *prefix);
 extern bool SDL_endswith(const char *string, const char *suffix);
 
 extern bool SDL_IsZeroGUID(const SDL_GUID *guid);
-extern bool SDL_IsSystemContainerGUID(const SDL_GUID *guid);
 
 /** Convert URI to a local filename, stripping the "file://"
  *  preamble and hostname if present, and writes the result

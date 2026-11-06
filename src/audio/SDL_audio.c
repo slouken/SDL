@@ -22,7 +22,6 @@
 
 #include "SDL_audio_c.h"
 #include "SDL_sysaudio.h"
-#include "../SDL_properties_c.h"
 #include "../thread/SDL_systhread.h"
 
 // Available audio drivers
@@ -620,6 +619,7 @@ static void DestroyPhysicalAudioDevice(SDL_AudioDevice *device)
     SDL_DestroyCondition(device->close_cond);
     SDL_free(device->work_buffer);
     SDL_free(device->chmap);
+    SDL_free(device->container_id);
     SDL_free(device->unique_id);
     SDL_free(device->name);
     SDL_free(device);
@@ -644,7 +644,7 @@ void RefPhysicalAudioDevice(SDL_AudioDevice *device)
     SDL_AtomicIncRef(&device->refcount);
 }
 
-static SDL_AudioDevice *CreatePhysicalAudioDevice(const char *name, const SDL_GUID *container_id, const char *unique_id, bool recording, const SDL_AudioSpec *spec, void *handle, SDL_AtomicInt *device_count)
+static SDL_AudioDevice *CreatePhysicalAudioDevice(const char *name, const char *container_id, const char *unique_id, bool recording, const SDL_AudioSpec *spec, void *handle, SDL_AtomicInt *device_count)
 {
     SDL_assert(name != NULL);
 
@@ -676,11 +676,12 @@ static SDL_AudioDevice *CreatePhysicalAudioDevice(const char *name, const SDL_GU
     }
 
     if (container_id) {
-        SDL_copyp(&device->container_id, container_id);
+        device->container_id = SDL_strdup(container_id);  // optional, so failing to copy it isn't fatal.
     }
 
     device->lock = SDL_CreateMutex();
     if (!device->lock) {
+        SDL_free(device->container_id);
         SDL_free(device->unique_id);
         SDL_free(device->name);
         SDL_free(device);
@@ -690,6 +691,7 @@ static SDL_AudioDevice *CreatePhysicalAudioDevice(const char *name, const SDL_GU
     device->close_cond = SDL_CreateCondition();
     if (!device->close_cond) {
         SDL_DestroyMutex(device->lock);
+        SDL_free(device->container_id);
         SDL_free(device->unique_id);
         SDL_free(device->name);
         SDL_free(device);
@@ -713,6 +715,7 @@ static SDL_AudioDevice *CreatePhysicalAudioDevice(const char *name, const SDL_GU
     } else {
         SDL_DestroyCondition(device->close_cond);
         SDL_DestroyMutex(device->lock);
+        SDL_free(device->container_id);
         SDL_free(device->unique_id);
         SDL_free(device->name);
         SDL_free(device);
@@ -724,19 +727,19 @@ static SDL_AudioDevice *CreatePhysicalAudioDevice(const char *name, const SDL_GU
     return device;
 }
 
-static SDL_AudioDevice *CreateAudioRecordingDevice(const char *name, const SDL_GUID *container_id, const char *unique_id, const SDL_AudioSpec *spec, void *handle)
+static SDL_AudioDevice *CreateAudioRecordingDevice(const char *name, const char *container_id, const char *unique_id, const SDL_AudioSpec *spec, void *handle)
 {
     SDL_assert(current_audio.impl.HasRecordingSupport);
     return CreatePhysicalAudioDevice(name, container_id, unique_id, true, spec, handle, &current_audio.recording_device_count);
 }
 
-static SDL_AudioDevice *CreateAudioPlaybackDevice(const char *name, const SDL_GUID *container_id, const char *unique_id, const SDL_AudioSpec *spec, void *handle)
+static SDL_AudioDevice *CreateAudioPlaybackDevice(const char *name, const char *container_id, const char *unique_id, const SDL_AudioSpec *spec, void *handle)
 {
     return CreatePhysicalAudioDevice(name, container_id, unique_id, false, spec, handle, &current_audio.playback_device_count);
 }
 
 // The audio backends call this when a new device is plugged in.
-SDL_AudioDevice *SDL_AddAudioDevice(bool recording, const char *name, const SDL_GUID *container_id, const char *unique_id, const SDL_AudioSpec *inspec, void *handle)
+SDL_AudioDevice *SDL_AddAudioDevice(bool recording, const char *name, const char *container_id, const char *unique_id, const SDL_AudioSpec *inspec, void *handle)
 {
     // device handles MUST be unique! If the target reuses the same handle for hardware with both recording and playback interfaces, wrap it in a pointer you SDL_malloc'd!
     SDL_assert(SDL_FindPhysicalAudioDeviceByHandle(handle) == NULL);
@@ -1727,9 +1730,8 @@ SDL_PropertiesID SDL_GetAudioDeviceProperties(SDL_AudioDeviceID devid)
         if (!props) {
             props = *propsptr = SDL_CreateProperties();
             if (props != 0) {  // fill in some basic properties.
-                if (!SDL_IsZeroGUID(&device->container_id) &&
-                    !SDL_IsSystemContainerGUID(&device->container_id)) {
-                    SDL_SetGUIDProperty(props, SDL_PROP_AUDIO_DEVICE_CONTAINER_ID_STRING, &device->container_id);
+                if (device->container_id) {
+                    SDL_SetStringProperty(props, SDL_PROP_AUDIO_DEVICE_CONTAINER_ID_STRING, device->container_id);
                 }
                 SDL_SetStringProperty(props, SDL_PROP_AUDIO_DEVICE_UNIQUE_ID_STRING, device->unique_id);
             }
