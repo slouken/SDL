@@ -47,6 +47,13 @@ static void IME_Quit(SDL_VideoData *videodata);
 static void IME_SetTextInputArea(SDL_VideoData *videodata, HWND hwnd, const SDL_Rect *rect, int cursor);
 #endif // !SDL_DISABLE_WINDOWS_IME
 
+#ifndef IS_HIGH_SURROGATE
+#define IS_HIGH_SURROGATE(x) (((x) >= 0xd800) && ((x) <= 0xdbff))
+#endif
+#ifndef IS_LOW_SURROGATE
+#define IS_LOW_SURROGATE(x) (((x) >= 0xdc00) && ((x) <= 0xdfff))
+#endif
+
 #ifndef MAPVK_VK_TO_VSC
 #define MAPVK_VK_TO_VSC 0
 #endif
@@ -897,6 +904,28 @@ static void IME_SendInputEvent(SDL_VideoData *videodata)
     videodata->ime_cursor = 0;
 }
 
+// Convert an offset in UTF-16 code units to an offset in codepoints
+static int IME_GetCodepointOffset(const WCHAR *text, int offset)
+{
+    int count = 0;
+
+    for (int i = 0; i < offset && text[i]; ++i) {
+        if (i > 0 && IS_LOW_SURROGATE(text[i]) && IS_HIGH_SURROGATE(text[i - 1])) {
+            continue;
+        }
+        ++count;
+    }
+    return count;
+}
+
+static void IME_SendEditingText(const char *text, const WCHAR *buffer, int start, int length)
+{
+    int codepoint_start = IME_GetCodepointOffset(buffer, start);
+    int codepoint_end = IME_GetCodepointOffset(buffer, start + length);
+
+    SDL_SendEditingText(text, codepoint_start, codepoint_end - codepoint_start);
+}
+
 static void IME_SendEditingEvent(SDL_VideoData *videodata)
 {
     char *s = NULL;
@@ -927,11 +956,11 @@ static void IME_SendEditingEvent(SDL_VideoData *videodata)
     s = WIN_StringToUTF8W(buffer);
     if (s) {
         if (videodata->ime_readingstring[0]) {
-            SDL_SendEditingText(s, videodata->ime_cursor, (int)SDL_wcslen(videodata->ime_readingstring));
+            IME_SendEditingText(s, buffer, videodata->ime_cursor, (int)SDL_wcslen(videodata->ime_readingstring));
         } else if (videodata->ime_cursor == videodata->ime_selected_start) {
-            SDL_SendEditingText(s, videodata->ime_selected_start, videodata->ime_selected_length);
+            IME_SendEditingText(s, buffer, videodata->ime_selected_start, videodata->ime_selected_length);
         } else {
-            SDL_SendEditingText(s, videodata->ime_cursor, 0);
+            IME_SendEditingText(s, buffer, videodata->ime_cursor, 0);
         }
         if (*s) {
             videodata->ime_needs_clear_composition = true;
