@@ -96,12 +96,10 @@ char *WIN_GetContainerIDString(const GUID *container_id)
     }
 
     // Use the same format that Windows uses, e.g. {24555b7b-4ecc-11f1-bc07-4c233802a1fc}
-    if (SDL_asprintf(&result, "{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
-                     (unsigned long)container_id->Data1, container_id->Data2, container_id->Data3,
-                     container_id->Data4[0], container_id->Data4[1], container_id->Data4[2], container_id->Data4[3],
-                     container_id->Data4[4], container_id->Data4[5], container_id->Data4[6], container_id->Data4[7]) < 0) {
-        return NULL;
-    }
+    SDL_asprintf(&result, "{%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x}",
+                 (unsigned long)container_id->Data1, container_id->Data2, container_id->Data3,
+                 container_id->Data4[0], container_id->Data4[1], container_id->Data4[2], container_id->Data4[3],
+                 container_id->Data4[4], container_id->Data4[5], container_id->Data4[6], container_id->Data4[7]);
     return result;
 }
 
@@ -458,7 +456,11 @@ char *WIN_GetContainerIDFromInterfacePath(const char *path)
     DEVPROPTYPE type = DEVPROP_TYPE_EMPTY;
     DWORD result;
 
-    if (!path || !WIN_LoadCfgMgr32() || !SDL_CM_Get_Device_Interface_PropertyW) {
+    if (!path) {
+        return NULL;
+    }
+
+    if (!WIN_LoadCfgMgr32() || !SDL_CM_Get_Device_Interface_PropertyW) {
         return NULL;
     }
 
@@ -502,6 +504,11 @@ void WIN_UnregisterDeviceInterfaceNotification(WIN_DeviceInterfaceNotification *
 WCHAR *WIN_GetHIDDeviceInterfaces(ULONG *length)
 {
     *length = 0;
+    return NULL;
+}
+
+WCHAR *WIN_GetHIDDeviceInterfaces(ULONG *length)
+{
     return NULL;
 }
 

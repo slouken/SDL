@@ -214,8 +214,7 @@ extern void WIN_QuitDeviceNotification(void);
 
 extern WCHAR *WIN_GetHIDDeviceInterfaces(ULONG *length);
 
-// Container IDs are returned as allocated strings, e.g. "{24555b7b-4ecc-11f1-bc07-4c233802a1fc}",
-// or NULL if the device doesn't have a container ID or is part of the computer itself.
+// Format a container ID as a Windows GUID string
 extern char *WIN_GetContainerIDString(const GUID *container_id);
 
 // Get the container ID for a device instance ID, e.g. an audio endpoint "SWD\MMDEVAPI\{0.0.0.00000000}.{...}"

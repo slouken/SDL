@@ -23,9 +23,8 @@
 #ifndef SDL_sysfs_h_
 #define SDL_sysfs_h_
 
-// Container IDs are returned as allocated strings, the sysfs path of the physical USB device,
-// e.g. "/sys/devices/pci0000:00/0000:00:14.0/usb1/1-2", or NULL if not available.
-// Devices that aren't on USB, e.g. Bluetooth or virtual devices, don't have a container ID.
+// Get the container ID for a sysfs path
+// The container ID is the directory in /sys/devices that corresponds to the USB device, if available
 extern char *SDL_GetContainerIDFromSysfsPath(const char *syspath);
 
 // Get a container ID for a character device node, e.g. /dev/input/event3 or /dev/hidraw2

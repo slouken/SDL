@@ -306,7 +306,7 @@ struct SDL_AudioDevice
     // human-readable name of the device. ("SoundBlaster Pro 16")
     char *name;
 
-    // the container ID of this device, used to match associated controllers or other devices. NULL if unknown.
+    // The container ID of this device, used to match associated controllers or other devices, optional
     char *container_id;
 
     // unique, platform-specific, backend-specific string to identify this specific device.

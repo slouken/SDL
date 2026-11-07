@@ -48,9 +48,7 @@ char *SDL_GetContainerIDFromRegistryEntryID(Uint64 entry_id)
                     CFNumberGetValue((CFNumberRef)location, kCFNumberSInt32Type, &location_id) &&
                     location_id != 0) {
                     // This needs to match the format used in SDL_coreaudio.m
-                    if (SDL_asprintf(&result, "%08" SDL_PRIx32, location_id) < 0) {
-                        result = NULL;
-                    }
+                    SDL_asprintf(&result, "0x%08" SDL_PRIx32, location_id);
                 }
                 CFRelease(location);
             }

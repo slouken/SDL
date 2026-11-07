@@ -763,7 +763,7 @@ extern SDL_DECLSPEC bool SDLCALL SDL_SendJoystickVirtualSensorData(SDL_Joystick 
  *
  * The following read-only properties are provided by SDL:
  *
- * - `SDL_PROP_JOYSTICK_CONTAINER_ID_STRING`: a string identifying the physical device this joystick is part of, if available. This can be compared with SDL_PROP_AUDIO_DEVICE_CONTAINER_ID_STRING to find associated audio devices
+ * - `SDL_PROP_JOYSTICK_CONTAINER_ID_STRING`: a string identifying the container for this joystick, if available.
  * - `SDL_PROP_JOYSTICK_CAP_MONO_LED_BOOLEAN`: true if this joystick has an
  *   LED that has adjustable brightness
  * - `SDL_PROP_JOYSTICK_CAP_RGB_LED_BOOLEAN`: true if this joystick has an LED

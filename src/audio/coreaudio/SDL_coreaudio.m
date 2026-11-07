@@ -146,17 +146,14 @@ static char *GetAudioDeviceStringProperty(AudioDeviceID dev, const AudioObjectPr
     return retval;
 }
 
-
-// This only _adds_ new devices. Removal is handled by devices triggering kAudioDevicePropertyDeviceIsAlive property changes.
 // Apple's USB audio driver includes the USB location ID in the device UID, e.g.
 // "AppleUSBAudioEngine:Sony Interactive Entertainment:Wireless Controller:2120000:1"
 // We use that as the container ID, so audio devices can be matched with USB controllers.
 static char *GetContainerIDFromUID(const char *unique_id)
 {
-    static const char prefix[] = "AppleUSBAudioEngine:";
     char *result = NULL;
 
-    if (!unique_id || SDL_strncmp(unique_id, prefix, sizeof(prefix) - 1) != 0) {
+    if (!unique_id || SDL_strncmp(unique_id, "AppleUSBAudioEngine:", 20) != 0) {
         return NULL;
     }
 
@@ -169,23 +166,22 @@ static char *GetContainerIDFromUID(const char *unique_id)
     while (start > unique_id && start[-1] != ':') {
         --start;
     }
-    if (start == end) {
+    if (start == unique_id) {
         return NULL;
     }
 
-    char *parsed_end = NULL;
-    const Uint32 location_id = (Uint32)SDL_strtoul(start, &parsed_end, 16);
-    if (parsed_end != end || location_id == 0) {
+    Uint32 location_id = (Uint32)SDL_strtoul(start, NULL, 16);
+    if (location_id == 0) {
         return NULL;
     }
 
     // This needs to match the format used by SDL_GetContainerIDFromRegistryEntryID()
-    if (SDL_asprintf(&result, "%08" SDL_PRIx32, location_id) < 0) {
-        return NULL;
-    }
+    SDL_asprintf(&result, "0x%08" SDL_PRIx32, location_id);
     return result;
 }
 
+
+// This only _adds_ new devices. Removal is handled by devices triggering kAudioDevicePropertyDeviceIsAlive property changes.
 static void RefreshPhysicalDevices(void)
 {
     UInt32 size = 0;

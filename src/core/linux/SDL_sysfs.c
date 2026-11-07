@@ -30,6 +30,7 @@
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
+
 static bool IsUSBDevice(const char *syspath)
 {
     // USB devices have a bus number, USB interfaces don't
@@ -42,7 +43,6 @@ static bool IsUSBDevice(const char *syspath)
 
 char *SDL_GetContainerIDFromSysfsPath(const char *syspath)
 {
-    static const char devices_root[] = "/sys/devices/";
     char path[PATH_MAX];
 
     if (!realpath(syspath, path)) {
@@ -51,16 +51,18 @@ char *SDL_GetContainerIDFromSysfsPath(const char *syspath)
 
     // Only physical devices have a container, and for Bluetooth devices
     // the first USB device above them is the Bluetooth adapter.
+    const char *devices_root = "/sys/devices/";
     if (!SDL_startswith(path, devices_root) ||
         SDL_startswith(path, "/sys/devices/virtual/") ||
         SDL_strstr(path, "/bluetooth/") != NULL) {
         return NULL;
     }
 
-    // Walk up to the USB device that this is part of
+    // Walk back up to the USB device containing this path
+    const char *base = path + SDL_strlen(devices_root);
     while (!IsUSBDevice(path)) {
         char *slash = SDL_strrchr(path, '/');
-        if (!slash || (size_t)(slash - path) < SDL_strlen(devices_root)) {
+        if (!slash || slash <= base) {
             return NULL;
         }
         *slash = '\0';

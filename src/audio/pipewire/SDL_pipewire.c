@@ -279,13 +279,13 @@ static bool pipewire_core_version_at_least(int major, int minor, int patch)
            (pipewire_version_major > major || pipewire_version_minor > minor || pipewire_version_patch >= patch);
 }
 
-static SDL_AudioDevice *AddPipewireAudioDevice(struct io_node *io)
+static SDL_AudioDevice *AddPipewireAudioDevice(struct io_node *node)
 {
     char *container_id = NULL;
 #ifdef SDL_PLATFORM_LINUX
-    container_id = SDL_GetContainerIDFromALSACard(io->alsa_card);
+    container_id = SDL_GetContainerIDFromALSACard(node->alsa_card);
 #endif
-    SDL_AudioDevice *device = SDL_AddAudioDevice(io->recording, io->name, container_id, NULL, &io->spec, PW_ID_TO_HANDLE(io->id));
+    SDL_AudioDevice *device = SDL_AddAudioDevice(node->recording, node->name, container_id, NULL, &node->spec, PW_ID_TO_HANDLE(node->id));
     SDL_free(container_id);
     return device;
 }
