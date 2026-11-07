@@ -565,8 +565,8 @@ static void HIDAPI_DriverFlydigi_HandleStatusResponse(SDL_HIDAPI_Device *device,
         // The Space Station service can stop input while third party apps are still allowed,
         // so release and re-acquire the controller if it looks like we should be able to.
         if (device->num_joysticks > 0 && ctx->acquired && data[6] == 0) {
-            SDL_HIDAPI_Flydigi_SendAcquireRequest(device, false);
-            SDL_HIDAPI_Flydigi_SendAcquireRequest(device, true);
+            //SDL_HIDAPI_Flydigi_SendAcquireRequest(device, false);
+            //SDL_HIDAPI_Flydigi_SendAcquireRequest(device, true);
         }
     } else {
         // Click "Allow third-party apps to take over mappings" in the FlyDigi Space Station app
