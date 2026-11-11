@@ -53,6 +53,9 @@ static const AudioBootStrap *const bootstrap[] = {
 #ifdef SDL_AUDIO_DRIVER_DSOUND
     &DSOUND_bootstrap,
 #endif
+#ifdef SDL_AUDIO_DRIVER_ASIO
+    &ASIO_bootstrap,
+#endif
 #ifdef SDL_AUDIO_DRIVER_HAIKU
     &HAIKUAUDIO_bootstrap,
 #endif

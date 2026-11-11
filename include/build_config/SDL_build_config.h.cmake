@@ -272,6 +272,7 @@
 
 /* Enable various audio drivers */
 #cmakedefine SDL_AUDIO_DRIVER_ALSA 1
+#cmakedefine SDL_AUDIO_DRIVER_ASIO 1
 #cmakedefine SDL_AUDIO_DRIVER_ALSA_DYNAMIC @SDL_AUDIO_DRIVER_ALSA_DYNAMIC@
 #cmakedefine SDL_AUDIO_DRIVER_OPENSLES 1
 #cmakedefine SDL_AUDIO_DRIVER_AAUDIO 1

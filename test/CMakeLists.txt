@@ -357,6 +357,7 @@ add_sdl_test_executable(testdynaudioreopen NEEDS_RESOURCES TESTUTILS MAIN_CALLBA
 add_sdl_test_executable(testsurround SOURCES testsurround.c NAME83 surround)
 add_sdl_test_executable(testresample NEEDS_RESOURCES SOURCES testresample.c NAME83 resample)
 add_sdl_test_executable(testaudioinfo SOURCES testaudioinfo.c NAME83 audioinf)
+add_sdl_test_executable(testaudiolatency SOURCES testaudiolatency.c NAME83 audlaten)
 add_sdl_test_executable(testaudiostreamdynamicresample NEEDS_RESOURCES TESTUTILS SOURCES testaudiostreamdynamicresample.c NAME83 audynres)
 
 file(GLOB TESTAUTOMATION_SOURCE_FILES testautomation*.c)

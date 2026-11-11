@@ -67,6 +67,9 @@
     <Filter Include="locale\windows">
       <UniqueIdentifier>{61b61b31-9e26-4171-a3bb-b969f1889726}</UniqueIdentifier>
     </Filter>
+    <Filter Include="audio\asio">
+      <UniqueIdentifier>{97be3cdc-372f-401c-b087-4388f5946df1}</UniqueIdentifier>
+    </Filter>
     <Filter Include="audio\directsound">
       <UniqueIdentifier>{f63aa216-6ee7-4143-90d3-32be3787f276}</UniqueIdentifier>
     </Filter>
@@ -656,6 +659,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\misc\SDL_sysurl.h">
       <Filter>misc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\audio\asio\SDL_asio.h">
+      <Filter>audio\asio</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\audio\directsound\SDL_directsound.h">
       <Filter>audio\directsound</Filter>
@@ -1548,6 +1554,9 @@
     </ClCompile>
     <ClCompile Include="..\..\src\locale\SDL_locale.c">
       <Filter>locale</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\audio\asio\SDL_asio.c">
+      <Filter>audio\asio</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\audio\directsound\SDL_directsound.c">
       <Filter>audio\directsound</Filter>

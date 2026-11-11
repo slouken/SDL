@@ -421,6 +421,7 @@
     <ClInclude Include="..\..\include\SDL3\SDL_version.h" />
     <ClInclude Include="..\..\include\SDL3\SDL_video.h" />
     <ClInclude Include="..\..\include\SDL3\SDL_vulkan.h" />
+    <ClInclude Include="..\..\src\audio\asio\SDL_asio.h" />
     <ClInclude Include="..\..\src\audio\directsound\SDL_directsound.h" />
     <ClInclude Include="..\..\src\audio\disk\SDL_diskaudio.h" />
     <ClInclude Include="..\..\src\audio\dummy\SDL_dummyaudio.h" />
@@ -759,6 +760,7 @@
     <ClInclude Include="..\..\src\video\yuv2rgb\yuv_rgb_std_func.h" />
     <ClCompile Include="..\..\src\atomic\SDL_atomic.c" />
     <ClCompile Include="..\..\src\atomic\SDL_spinlock.c" />
+    <ClCompile Include="..\..\src\audio\asio\SDL_asio.c" />
     <ClCompile Include="..\..\src\audio\directsound\SDL_directsound.c" />
     <ClCompile Include="..\..\src\audio\disk\SDL_diskaudio.c" />
     <ClCompile Include="..\..\src\audio\dummy\SDL_dummyaudio.c" />
